@@ -1,6 +1,16 @@
 # Auto Sukli for Mobile User
 
-Auto Sukli displays movable denomination targets and uses an Android Accessibility Service to tap the targets in sequence. The current denominations are **₱50, ₱20, ₱10, ₱5, and ₱1**, followed by the check target.
+Auto Sukli is an Android Fare Matrix calculator for the Diesel N' Steel route setup. Choose the route, pickup, drop-off, passenger type, passenger count, and payment amount. The app calculates the fare and change, then uses the configured Accessibility Service to tap the denomination targets automatically.
+
+## Fare rules included
+
+The current Fare Matrix data includes:
+
+- **Balagtas ↔ Bulakan:** Bagumbayan/San Jose, Matungao, Panginay Guiguinto, Panginay Balagtas, Wawa
+- **Guiguinto ↔ Bulakan:** Bagumbayan/San Jose, Matungao, Tuktukan
+- **Malolos ↔ Bulakan:** Bagumbayan/San Jose, Maysantol, San Nicolas, Pitpitan, Mambog, Matimbo, Panasahan, Bagna, Atlag, San Juan/Sto. Rosario
+
+Fare calculation uses the reference Fare Matrix rules: minimum 4 units, ₱13 per regular passenger, ₱11 per student or senior passenger, and +₱2 for every unit beyond the minimum. The selected passenger type and count are applied to the fare.
 
 ## Download the APK from GitHub Actions
 
@@ -39,20 +49,22 @@ A debug APK is suitable for testing on your own phone. It is not a Play Store re
 
 1. Install and open the APK.
 2. Tap **Enable Accessibility Service**, select **Auto Sukli**, and enable it.
-3. Return to the app and tap **Show Targets**.
+3. Return to the app and tap **Show / Arrange Targets**.
 4. Allow the app to display over other apps.
-5. Move the denomination targets to the positions where the change buttons appear.
-6. Enter an amount such as `35` and tap **Give Change**.
+5. Move the ₱50, ₱20, ₱10, ₱5, ₱1, and check targets to the correct positions in the cashier/payment screen.
+6. Choose the route, pickup, drop-off, passenger type, and passenger count.
+7. Enter the passenger's payment amount.
+8. Tap **CALCULATE FARE + AUTO SUKLI**.
 
-The app will tap `20`, `10`, `5`, and then the check target for ₱35. Keep the target positions aligned with the buttons in the payment or cashier app.
+For example, if the app calculates ₱35 fare and the passenger pays ₱50, it displays ₱15 change and taps the ₱10, ₱5, and check targets.
 
 ## Important safety note
 
-Accessibility access allows the app to perform screen gestures. Enable it only for this app and disable it in Android Settings when you are finished testing. The overlay and Accessibility permissions are required for the automatic tapping feature.
+Accessibility access allows the app to perform screen gestures. Enable it only for this app and disable it in Android Settings when you are finished testing. The overlay and Accessibility permissions are required for the automatic tapping feature. Verify every target position before using the app for real transactions.
 
 ## Current limitations
 
 - The supported denominations are fixed at ₱50, ₱20, ₱10, ₱5, and ₱1.
+- The calculator currently applies one passenger type to the entered passenger count. Mixed regular/student/senior groups can be added in a later update.
 - The app currently creates a debug APK through GitHub Actions.
 - A production release build still needs a private signing key and release configuration.
-- Test the tap positions carefully before using the app for real transactions.

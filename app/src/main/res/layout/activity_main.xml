@@ -1,71 +1,215 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="24dp"
-    android:background="#10160D">
+    android:background="#10160D"
+    android:fillViewport="true">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Auto Sukli Clicker"
-        android:textColor="#F3B22C"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="16dp" />
-
-    <TextView
-        android:id="@+id/statusText"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="#F1E9D2"
-        android:textSize="15sp"
-        android:padding="12dp"
-        android:background="#1A2415"
-        android:layout_marginBottom="16dp" />
+        android:orientation="vertical"
+        android:padding="20dp">
 
-    <Button
-        android:id="@+id/btnAccessibility"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="1. Enable Accessibility Service"
-        android:layout_marginBottom="8dp" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Fare Matrix Auto Sukli"
+            android:textColor="#F3B22C"
+            android:textSize="25sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="6dp" />
 
-    <Button
-        android:id="@+id/btnOverlay"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="2. Show Targets (50-20-10-5-1-✓)"
-        android:layout_marginBottom="16dp" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Piliin ang route, pickup, drop-off, pasahero, at bayad. Awtomatikong kakalkulahin ang fare at sukli."
+            android:textColor="#C9BE9E"
+            android:textSize="14sp"
+            android:layout_marginBottom="14dp" />
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="💰 Ilagay ang Sukli"
-        android:textColor="#F3B22C"
-        android:textSize="16sp"
-        android:layout_marginBottom="8dp" />
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#F1E9D2"
+            android:textSize="14sp"
+            android:padding="12dp"
+            android:background="#1A2415"
+            android:layout_marginBottom="14dp" />
 
-    <EditText
-        android:id="@+id/etSukli"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Halimbawa: 35"
-        android:inputType="number"
-        android:textColor="#10160D"
-        android:textColorHint="#666"
-        android:background="#F1E9D2"
-        android:padding="12dp"
-        android:layout_marginBottom="8dp" />
+        <Button
+            android:id="@+id/btnAccessibility"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="1. Enable Accessibility Service"
+            android:layout_marginBottom="8dp" />
 
-    <Button
-        android:id="@+id/btnGiveChange"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="💵 Give Change → Check"
-        android:backgroundTint="#F3B22C"
-        android:textColor="#1A2415"
-        android:padding="16dp" />
+        <Button
+            android:id="@+id/btnOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="2. Show / Arrange Targets"
+            android:layout_marginBottom="18dp" />
 
-</LinearLayout>
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="TRIP DETAILS"
+            android:textColor="#F3B22C"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_marginBottom="6dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Route"
+            android:textColor="#F1E9D2" />
+
+        <Spinner
+            android:id="@+id/spRoute"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#F1E9D2"
+            android:layout_marginBottom="10dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Pickup / Sakayan"
+            android:textColor="#F1E9D2" />
+
+        <Spinner
+            android:id="@+id/spPickup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#F1E9D2"
+            android:layout_marginBottom="10dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Drop-off / Babaan"
+            android:textColor="#F1E9D2" />
+
+        <Spinner
+            android:id="@+id/spDropoff"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#F1E9D2"
+            android:layout_marginBottom="10dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Passenger type"
+            android:textColor="#F1E9D2" />
+
+        <Spinner
+            android:id="@+id/spPassengerType"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#F1E9D2"
+            android:layout_marginBottom="10dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Number of passengers"
+            android:textColor="#F1E9D2" />
+
+        <EditText
+            android:id="@+id/etPassengerCount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Halimbawa: 1"
+            android:inputType="number"
+            android:textColor="#10160D"
+            android:textColorHint="#666666"
+            android:background="#F1E9D2"
+            android:padding="12dp"
+            android:text="1"
+            android:layout_marginBottom="10dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Payment amount / Binayad"
+            android:textColor="#F1E9D2" />
+
+        <EditText
+            android:id="@+id/etPayment"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Halimbawa: 50"
+            android:inputType="numberDecimal"
+            android:textColor="#10160D"
+            android:textColorHint="#666666"
+            android:background="#F1E9D2"
+            android:padding="12dp"
+            android:layout_marginBottom="14dp" />
+
+        <TextView
+            android:id="@+id/tvFareResult"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Fare: ₱0"
+            android:textColor="#F3B22C"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:background="#1A2415"
+            android:padding="14dp"
+            android:layout_marginBottom="6dp" />
+
+        <TextView
+            android:id="@+id/tvBreakdown"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Pumili ng trip details."
+            android:textColor="#F1E9D2"
+            android:textSize="14sp"
+            android:padding="10dp"
+            android:background="#212D1A"
+            android:layout_marginBottom="6dp" />
+
+        <TextView
+            android:id="@+id/tvChangeResult"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Sukli: ₱0"
+            android:textColor="#6FA05B"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:background="#1A2415"
+            android:padding="14dp"
+            android:layout_marginBottom="12dp" />
+
+        <Button
+            android:id="@+id/btnCalculateAndGive"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="CALCULATE FARE + AUTO SUKLI"
+            android:backgroundTint="#F3B22C"
+            android:textColor="#1A2415"
+            android:textStyle="bold"
+            android:padding="16dp"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btnReset"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Reset trip"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Fare rules: minimum 4 units • Regular ₱13 • Student/Senior ₱11 • +₱2 bawat unit lampas sa minimum"
+            android:textColor="#C9BE9E"
+            android:textSize="12sp"
+            android:paddingTop="8dp" />
+
+    </LinearLayout>
+</ScrollView>
