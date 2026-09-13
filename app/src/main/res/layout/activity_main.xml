@@ -200,7 +200,7 @@
             android:id="@+id/btnCalculateAndGive"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="CALCULATE FARE + AUTO SUKLI"
+            android:text="CALCULATE FARE + SAVE SUKLI"
             android:backgroundTint="#F3B22C"
             android:textColor="#1A2415"
             android:textStyle="bold"

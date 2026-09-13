@@ -13,13 +13,6 @@ import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 class MainActivity : AppCompatActivity() {
@@ -54,8 +47,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var passengerCountInput: EditText
     private lateinit var paymentInput: EditText
     private lateinit var calculateButton: Button
-    private var playingJob: Job? = null
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -102,8 +93,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        playingJob?.cancel()
-        scope.cancel()
         super.onDestroy()
     }
 
@@ -203,38 +192,11 @@ class MainActivity : AppCompatActivity() {
         autoSequenceResult.text = "Status: ${denominations.joinToString(" + ")}\n" +
             "Auto-click: highest to lowest, then ✓"
 
-        val accessibilityService = AutoClickService.instance
-        val floatingService = FloatingService.instance
-        if (accessibilityService == null) {
-            Toast.makeText(this, "Enable Accessibility muna", Toast.LENGTH_LONG).show()
-            return
-        }
-        if (floatingService == null) {
-            Toast.makeText(this, "I-activate muna ang targets", Toast.LENGTH_LONG).show()
-            return
-        }
-        if (playingJob?.isActive == true) {
-            Toast.makeText(this, "Ginagawa pa ang naunang sukli", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        calculateButton.isEnabled = false
-        playingJob = scope.launch {
-            try {
-                for (key in sequence) {
-                    val position = floatingService.getTargetCenter(key)
-                    if (position == null) {
-                        Toast.makeText(this@MainActivity, "Ibalik muna ang target: $key", Toast.LENGTH_LONG).show()
-                        break
-                    }
-                    accessibilityService.tapAt(position.first, position.second)
-                    delay(if (key == "CHECK") 400L else 250L)
-                }
-            } finally {
-                calculateButton.isEnabled = true
-                playingJob = null
-            }
-        }
+        getSharedPreferences("fare_session", MODE_PRIVATE).edit()
+            .putString("pending_sequence", sequence.joinToString(","))
+            .putInt("pending_change", amount)
+            .apply()
+        Toast.makeText(this, "Sukli saved. Pindutin ang blue ▶ Play button.", Toast.LENGTH_LONG).show()
     }
 
     private fun stopIndex(route: Route, name: String?): Int =

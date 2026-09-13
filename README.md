@@ -54,7 +54,10 @@ A debug APK is suitable for testing on your own phone. It is not a Play Store re
 5. Move the ₱50, ₱20, ₱10, ₱5, ₱1, and check targets to the correct positions in the cashier/payment screen.
 6. Choose the route, pickup, drop-off, passenger type, and passenger count.
 7. Enter the passenger's payment amount.
-8. Tap **CALCULATE FARE + AUTO SUKLI**.
+8. Tap **CALCULATE FARE + SAVE SUKLI**.
+9. You may now close or leave the main app. The floating controller remains available.
+10. Tap the blue **▶ Play** button on the floating controller to start the saved auto-sukli sequence.
+11. If all denomination targets were closed, tap the green **+** button to restore them. The controller itself stays visible and cannot be closed by closing denomination targets.
 
 For example, if the app calculates ₱35 fare and the passenger pays ₱50, it displays ₱15 change and taps the ₱10, ₱5, and check targets.
 
@@ -67,6 +70,8 @@ Auto-click: highest to lowest, then ✓
 ```
 
 The app calculates this sequence using the available targets in descending order: ₱50, ₱20, ₱10, ₱5, then ₱1. It taps each matching floating target and finally taps the check target.
+
+The floating controller is intentionally persistent: the blue Play button starts the last saved sequence even when the main app screen is no longer open, while the green Plus button restores every closed denomination target.
 
 ## Important safety note
 
