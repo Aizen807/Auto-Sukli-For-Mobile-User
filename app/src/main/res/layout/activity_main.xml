@@ -185,6 +185,17 @@
             android:padding="14dp"
             android:layout_marginBottom="12dp" />
 
+        <TextView
+            android:id="@+id/tvAutoSequence"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Auto-click order: —"
+            android:textColor="#F1E9D2"
+            android:textSize="15sp"
+            android:background="#212D1A"
+            android:padding="12dp"
+            android:layout_marginBottom="12dp" />
+
         <Button
             android:id="@+id/btnCalculateAndGive"
             android:layout_width="match_parent"

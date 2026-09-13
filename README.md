@@ -58,6 +58,16 @@ A debug APK is suitable for testing on your own phone. It is not a Play Store re
 
 For example, if the app calculates ₱35 fare and the passenger pays ₱50, it displays ₱15 change and taps the ₱10, ₱5, and check targets.
 
+The result screen also shows the exact click order. For example, for ₱85 change:
+
+```text
+Sukli: ₱85
+Status: 50 + 20 + 10 + 5
+Auto-click: highest to lowest, then ✓
+```
+
+The app calculates this sequence using the available targets in descending order: ₱50, ₱20, ₱10, ₱5, then ₱1. It taps each matching floating target and finally taps the check target.
+
 ## Important safety note
 
 Accessibility access allows the app to perform screen gestures. Enable it only for this app and disable it in Android Settings when you are finished testing. The overlay and Accessibility permissions are required for the automatic tapping feature. Verify every target position before using the app for real transactions.

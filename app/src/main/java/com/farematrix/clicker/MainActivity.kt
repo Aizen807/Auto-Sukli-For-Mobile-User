@@ -46,6 +46,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var fareResult: TextView
     private lateinit var breakdownResult: TextView
     private lateinit var changeResult: TextView
+    private lateinit var autoSequenceResult: TextView
     private lateinit var routeSpinner: Spinner
     private lateinit var pickupSpinner: Spinner
     private lateinit var dropoffSpinner: Spinner
@@ -64,6 +65,7 @@ class MainActivity : AppCompatActivity() {
         fareResult = findViewById(R.id.tvFareResult)
         breakdownResult = findViewById(R.id.tvBreakdown)
         changeResult = findViewById(R.id.tvChangeResult)
+        autoSequenceResult = findViewById(R.id.tvAutoSequence)
         routeSpinner = findViewById(R.id.spRoute)
         pickupSpinner = findViewById(R.id.spPickup)
         dropoffSpinner = findViewById(R.id.spDropoff)
@@ -173,17 +175,33 @@ class MainActivity : AppCompatActivity() {
         if (change < 0) {
             changeResult.setTextColor(getColor(android.R.color.holo_red_light))
             changeResult.text = "Kulang: ₱${formatMoney(-change)}"
+            autoSequenceResult.text = "Status: Walang auto sukli — kulang ang bayad"
             Toast.makeText(this, "Kulang pa ng ₱${formatMoney(-change)}", Toast.LENGTH_LONG).show()
             return
         }
 
         changeResult.setTextColor(getColor(android.R.color.holo_green_light))
         changeResult.text = if (change == 0.0) "Sukli: ₱0 (eksakto)" else "Sukli: ₱${formatMoney(change)}"
-        if (change == 0.0) return
+        if (change == 0.0) {
+            autoSequenceResult.text = "Status: Eksakto — walang ita-tap na sukli"
+            return
+        }
         if (change != change.toInt().toDouble()) {
+            autoSequenceResult.text = "Status: Whole-peso targets lamang"
             showError("Ang auto sukli ay para sa whole-peso amounts lamang.")
             return
         }
+
+        val amount = change.toInt()
+        val sequence = makeChangeSequence(amount)
+        if (sequence.isEmpty()) {
+            autoSequenceResult.text = "Status: Hindi mabuo ang sukli"
+            showError("Hindi mabuo ang sukli gamit ang ₱50, ₱20, ₱10, ₱5, ₱1 targets.")
+            return
+        }
+        val denominations = sequence.dropLast(1)
+        autoSequenceResult.text = "Status: ${denominations.joinToString(" + ")}\n" +
+            "Auto-click: highest to lowest, then ✓"
 
         val accessibilityService = AutoClickService.instance
         val floatingService = FloatingService.instance
@@ -200,12 +218,6 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        val amount = change.toInt()
-        val sequence = makeChangeSequence(amount)
-        if (sequence.isEmpty()) {
-            showError("Hindi mabuo ang sukli gamit ang ₱50, ₱20, ₱10, ₱5, ₱1 targets.")
-            return
-        }
         calculateButton.isEnabled = false
         playingJob = scope.launch {
             try {
@@ -259,6 +271,7 @@ class MainActivity : AppCompatActivity() {
         breakdownResult.text = "Pumili ng trip details."
         changeResult.setTextColor(getColor(android.R.color.holo_green_light))
         changeResult.text = "Sukli: ₱0"
+        autoSequenceResult.text = "Status: —"
     }
 
     private class SimpleItemSelectedListener(private val callback: (Int) -> Unit) :
