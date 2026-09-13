@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Auto Sukli</string>
+    <string name="accessibility_description">Pinapayagan ng service na ito ang app na mag-tap sa screen para sa auto-sukli feature.</string>
+</resources>
