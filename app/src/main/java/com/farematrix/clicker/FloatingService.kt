@@ -32,6 +32,7 @@ class FloatingService : Service() {
     private lateinit var windowManager: WindowManager
     private lateinit var prefs: SharedPreferences
     private val targetViews = mutableMapOf<String, View>()
+    private val targetParams = mutableMapOf<String, WindowManager.LayoutParams>()
     private val targetPositions = mutableMapOf<String, Pair<Float, Float>>()
     private var controllerView: View? = null
     private var sequenceJob: Job? = null
@@ -164,10 +165,12 @@ class FloatingService : Service() {
             if (targetsLocked) return@setOnClickListener
             if (view.isAttachedToWindow) windowManager.removeView(view)
             targetViews.remove(key)
+            targetParams.remove(key)
             targetPositions.remove(key)
         }
         windowManager.addView(view, params)
         targetViews[key] = view
+        targetParams[key] = params
         applyLockState(view)
         view.post { savePosition(key, params.x, params.y, view) }
     }
@@ -190,6 +193,28 @@ class FloatingService : Service() {
 
     fun getTargetCenter(key: String): Pair<Float, Float>? = targetPositions[key]
 
+    private fun liveTargetCenter(key: String): Pair<Float, Float>? {
+        val view = targetViews[key] ?: return null
+        if (!view.isAttachedToWindow) return null
+        val location = IntArray(2)
+        view.getLocationOnScreen(location)
+        return Pair(location[0] + view.width / 2f, location[1] + view.height / 2f)
+    }
+
+    private fun setTargetsTouchThrough(touchThrough: Boolean) {
+        targetParams.forEach { (key, params) ->
+            params.flags = if (touchThrough) {
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            } else {
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            }
+            targetViews[key]?.let { view ->
+                if (view.isAttachedToWindow) windowManager.updateViewLayout(view, params)
+            }
+        }
+    }
+
     private fun playSavedChange() {
         if (sequenceJob?.isActive == true) {
             Toast.makeText(this, "Ginagawa pa ang sukli", Toast.LENGTH_SHORT).show()
@@ -209,10 +234,10 @@ class FloatingService : Service() {
         }
         sequenceJob = scope.launch {
             try {
-                // Hide target windows while dispatchGesture runs so they cannot intercept playback taps.
-                targetViews.values.forEach { it.visibility = View.INVISIBLE }
+                // Keep labels visible, but let Accessibility gestures pass through them.
+                setTargetsTouchThrough(true)
                 for (key in sequence) {
-                    val position = targetPositions[key]
+                    val position = liveTargetCenter(key)
                     if (position == null) {
                         Toast.makeText(this@FloatingService, "Ibalik muna ang target: $key gamit ang +", Toast.LENGTH_LONG).show()
                         break
@@ -221,7 +246,7 @@ class FloatingService : Service() {
                     delay(if (key == "CHECK") 400L else 250L)
                 }
             } finally {
-                targetViews.values.forEach { it.visibility = View.VISIBLE }
+                setTargetsTouchThrough(false)
                 sequenceJob = null
             }
         }
@@ -243,6 +268,7 @@ class FloatingService : Service() {
         targetViews.values.forEach { if (it.isAttachedToWindow) windowManager.removeView(it) }
         controllerView = null
         targetViews.clear()
+        targetParams.clear()
         targetPositions.clear()
         super.onDestroy()
     }
