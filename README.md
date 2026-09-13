@@ -55,7 +55,7 @@ A debug APK is suitable for testing on your own phone. It is not a Play Store re
 6. Choose the route, pickup, drop-off, passenger type, and passenger count.
 7. Enter the Regular, Student, and Senior passenger counts. You can use any combination, such as 1 regular + 1 student.
 8. Enter the passenger's payment amount.
-9. Tap **CALCULATE FARE + SAVE SUKLI**.
+9. The latest fare and change sequence is automatically saved whenever you change the route, pickup, drop-off, passenger counts, or payment. You can also tap **UPDATE / SAVE SUKLI NOW**.
 10. You may now close or leave the main app. The floating controller remains available.
 11. Tap the blue **▶ Play** button on the floating controller to start the saved auto-sukli sequence.
 12. If all denomination targets were closed, tap the green **+** button to restore them. The controller itself stays visible and cannot be closed by closing denomination targets.
@@ -72,7 +72,7 @@ Auto-click: highest to lowest, then ✓
 
 The app calculates this sequence using the available targets in descending order: ₱50, ₱20, ₱10, ₱5, then ₱1. It temporarily hides the targets while Accessibility playback runs so the overlay windows do not intercept the underlying app's buttons, then restores them after playback.
 
-The floating controller is intentionally persistent: the blue Play button starts the last saved sequence even when the main app screen is no longer open, the red Stop button cancels playback, the green Plus button restores every closed denomination target, and the lock button prevents accidental target movement or closing while the layout is ready.
+The floating controller is intentionally persistent: the blue Play button starts the latest saved sequence even when the main app screen is no longer open, the red Stop button cancels playback, the green Plus button restores every closed denomination target, and the lock button prevents accidental target movement or closing while the layout is ready. Use the controller's **Hide** button to remove it normally; reopen Auto Sukli and tap **Show Floating Controller** to bring it back without force-stopping the app.
 
 ## Important safety note
 

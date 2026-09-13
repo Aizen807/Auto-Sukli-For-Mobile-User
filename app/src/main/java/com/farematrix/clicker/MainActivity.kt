@@ -5,6 +5,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Button
@@ -70,6 +72,17 @@ class MainActivity : AppCompatActivity() {
         updateStops(0)
 
         routeSpinner.setOnItemSelectedListener(SimpleItemSelectedListener { updateStops(it) })
+        pickupSpinner.setOnItemSelectedListener(SimpleItemSelectedListener { calculateAndSaveSilently() })
+        dropoffSpinner.setOnItemSelectedListener(SimpleItemSelectedListener { calculateAndSaveSilently() })
+        val inputWatcher = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { calculateAndSaveSilently() }
+            override fun afterTextChanged(s: Editable?) = Unit
+        }
+        regularCountInput.addTextChangedListener(inputWatcher)
+        studentCountInput.addTextChangedListener(inputWatcher)
+        seniorCountInput.addTextChangedListener(inputWatcher)
+        paymentInput.addTextChangedListener(inputWatcher)
         findViewById<Button>(R.id.btnAccessibility).setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
@@ -83,6 +96,7 @@ class MainActivity : AppCompatActivity() {
                 ))
             }
         }
+        findViewById<Button>(R.id.btnController).setOnClickListener { toggleController() }
         calculateButton.setOnClickListener { calculateAndGiveChange() }
         findViewById<Button>(R.id.btnReset).setOnClickListener { resetTrip() }
     }
@@ -106,6 +120,7 @@ class MainActivity : AppCompatActivity() {
         setupSpinner(pickupSpinner, stops)
         setupSpinner(dropoffSpinner, stops)
         if (stops.size > 1) dropoffSpinner.setSelection(stops.lastIndex)
+        calculateAndSaveSilently()
     }
 
     private fun updateStatus() {
@@ -121,7 +136,27 @@ class MainActivity : AppCompatActivity() {
         else startService(intent)
     }
 
-    private fun calculateAndGiveChange() {
+    private fun toggleController() {
+        val service = FloatingService.instance
+        if (service == null) {
+            if (Settings.canDrawOverlays(this)) startFloatingService()
+            else startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+        } else {
+            service.showController()
+        }
+    }
+
+    private fun calculateAndSaveSilently() {
+        if (::routeSpinner.isInitialized && routeSpinner.selectedItem != null) {
+            calculateAndGiveChange(showToast = false)
+        }
+    }
+
+    private fun calculateAndGiveChange(showToast: Boolean = true) {
+        getSharedPreferences("fare_session", MODE_PRIVATE).edit()
+            .remove("pending_sequence")
+            .remove("pending_change")
+            .apply()
         val route = routes.getOrNull(routeSpinner.selectedItemPosition) ?: return
         val pickupIndex = stopIndex(route, pickupSpinner.selectedItem?.toString())
         val dropoffIndex = stopIndex(route, dropoffSpinner.selectedItem?.toString())
@@ -131,20 +166,20 @@ class MainActivity : AppCompatActivity() {
         val payment = paymentInput.text.toString().toDoubleOrNull()
 
         if (pickupIndex < 0 || dropoffIndex < 0) {
-            showError("Pumili ng valid na pickup at drop-off.")
+            if (showToast) showError("Pumili ng valid na pickup at drop-off.")
             return
         }
         if (pickupIndex == dropoffIndex) {
-            showError("Magkaiba dapat ang pickup at drop-off.")
+            if (showToast) showError("Magkaiba dapat ang pickup at drop-off.")
             return
         }
         if (regularCount + studentCount + seniorCount <= 0 ||
             regularCount < 0 || studentCount < 0 || seniorCount < 0) {
-            showError("Ilagay ang bilang ng pasahero.")
+            if (showToast) showError("Ilagay ang bilang ng pasahero.")
             return
         }
         if (payment == null || payment < 0) {
-            showError("Ilagay ang tamang payment amount.")
+            if (showToast) showError("Ilagay ang tamang payment amount.")
             return
         }
 
@@ -184,7 +219,7 @@ class MainActivity : AppCompatActivity() {
         }
         if (change != change.toInt().toDouble()) {
             autoSequenceResult.text = "Status: Whole-peso targets lamang"
-            showError("Ang auto sukli ay para sa whole-peso amounts lamang.")
+            if (showToast) showError("Ang auto sukli ay para sa whole-peso amounts lamang.")
             return
         }
 
@@ -192,7 +227,7 @@ class MainActivity : AppCompatActivity() {
         val sequence = makeChangeSequence(amount)
         if (sequence.isEmpty()) {
             autoSequenceResult.text = "Status: Hindi mabuo ang sukli"
-            showError("Hindi mabuo ang sukli gamit ang ₱50, ₱20, ₱10, ₱5, ₱1 targets.")
+            if (showToast) showError("Hindi mabuo ang sukli gamit ang ₱50, ₱20, ₱10, ₱5, ₱1 targets.")
             return
         }
         val denominations = sequence.dropLast(1)

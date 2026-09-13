@@ -96,8 +96,21 @@ class FloatingService : Service() {
         view.findViewById<Button>(R.id.controllerStop).setOnClickListener { stopPlayback() }
         view.findViewById<Button>(R.id.controllerRestore).setOnClickListener { restoreAllTargets() }
         view.findViewById<Button>(R.id.controllerLock).setOnClickListener { toggleTargetLock() }
+        view.findViewById<Button>(R.id.controllerHide).setOnClickListener { hideController() }
         windowManager.addView(view, params)
         controllerView = view
+    }
+
+    fun hideController() {
+        controllerView?.visibility = View.GONE
+    }
+
+    fun showController() {
+        controllerView?.visibility = View.VISIBLE
+    }
+
+    fun toggleControllerVisibility() {
+        if (controllerView?.visibility == View.VISIBLE) hideController() else showController()
     }
 
     fun restoreAllTargets(showMessage: Boolean = true) {

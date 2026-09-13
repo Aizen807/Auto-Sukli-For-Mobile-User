@@ -52,6 +52,13 @@
             android:text="2. Show / Arrange Targets"
             android:layout_marginBottom="18dp" />
 
+        <Button
+            android:id="@+id/btnController"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Show Floating Controller"
+            android:layout_marginBottom="18dp" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -209,12 +216,20 @@
             android:id="@+id/btnCalculateAndGive"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="CALCULATE FARE + SAVE SUKLI"
+            android:text="UPDATE / SAVE SUKLI NOW"
             android:backgroundTint="#F3B22C"
             android:textColor="#1A2415"
             android:textStyle="bold"
             android:padding="16dp"
             android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Auto-update is active: route, pickup, drop-off, passenger counts, and payment automatically update the blue ▶ Play sequence."
+            android:textColor="#C9BE9E"
+            android:textSize="12sp"
+            android:paddingBottom="8dp" />
 
         <Button
             android:id="@+id/btnReset"
