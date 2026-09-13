@@ -17,6 +17,17 @@
         android:backgroundTint="#2563EB"
         android:contentDescription="Start automatic change" />
 
+    <TextView
+        android:id="@+id/controllerStatus"
+        android:layout_width="76dp"
+        android:layout_height="wrap_content"
+        android:text="Ready"
+        android:textColor="#FFFFFF"
+        android:textSize="10sp"
+        android:gravity="center"
+        android:maxLines="3"
+        android:padding="3dp" />
+
     <Button
         android:id="@+id/controllerStop"
         android:layout_width="70dp"

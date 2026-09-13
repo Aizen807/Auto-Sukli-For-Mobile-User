@@ -110,6 +110,10 @@ class FloatingService : Service() {
         controllerView?.visibility = View.VISIBLE
     }
 
+    private fun setPlaybackStatus(text: String) {
+        controllerView?.findViewById<TextView>(R.id.controllerStatus)?.text = text
+    }
+
     fun toggleControllerVisibility() {
         if (controllerView?.visibility == View.VISIBLE) hideController() else showController()
     }
@@ -244,17 +248,32 @@ class FloatingService : Service() {
         }
         sequenceJob = scope.launch {
             try {
+                setPlaybackStatus("Plan: ${sequence.joinToString(" → ") { if (it == "CHECK") "check" else it }}")
+                delay(250L)
                 // Keep labels visible, but let Accessibility gestures pass through them.
                 setTargetsTouchThrough(true)
                 for (key in sequence) {
                     val position = liveTargetCenter(key)
                     if (position == null) {
+                        setPlaybackStatus("Missing $key")
                         Toast.makeText(this@FloatingService, "Ibalik muna ang target: $key gamit ang +", Toast.LENGTH_LONG).show()
                         break
                     }
-                    accessibilityService.tapAt(position.first, position.second)
+                    val label = if (key == "CHECK") "check" else key
+                    setPlaybackStatus("Clicks $label\nx=${position.first.toInt()} y=${position.second.toInt()}")
+                    val dispatched = accessibilityService.tapAt(position.first, position.second) { completed ->
+                        setPlaybackStatus(
+                            if (completed) "Clicked $label\nx=${position.first.toInt()} y=${position.second.toInt()}"
+                            else "FAILED $label\nx=${position.first.toInt()} y=${position.second.toInt()}"
+                        )
+                    }
+                    if (!dispatched) {
+                        setPlaybackStatus("FAILED $label\ndispatch rejected")
+                        break
+                    }
                     delay(if (key == "CHECK") 400L else 250L)
                 }
+                setPlaybackStatus("Done\nSequence complete")
             } finally {
                 setTargetsTouchThrough(false)
                 sequenceJob = null
@@ -265,6 +284,7 @@ class FloatingService : Service() {
     private fun stopPlayback() {
         if (sequenceJob?.isActive == true) {
             sequenceJob?.cancel()
+            setPlaybackStatus("Stopped")
             Toast.makeText(this, "Auto sukli stopped", Toast.LENGTH_SHORT).show()
         }
     }
