@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="#10160D">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Auto Sukli Clicker"
+        android:textColor="#F3B22C"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:id="@+id/statusText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#F1E9D2"
+        android:textSize="15sp"
+        android:padding="12dp"
+        android:background="#1A2415"
+        android:layout_marginBottom="16dp" />
+
+    <Button
+        android:id="@+id/btnAccessibility"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="1. Enable Accessibility Service"
+        android:layout_marginBottom="8dp" />
+
+    <Button
+        android:id="@+id/btnOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="2. Show Targets (50-20-10-5-1-✓)"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="💰 Ilagay ang Sukli"
+        android:textColor="#F3B22C"
+        android:textSize="16sp"
+        android:layout_marginBottom="8dp" />
+
+    <EditText
+        android:id="@+id/etSukli"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Halimbawa: 35"
+        android:inputType="number"
+        android:textColor="#10160D"
+        android:textColorHint="#666"
+        android:background="#F1E9D2"
+        android:padding="12dp"
+        android:layout_marginBottom="8dp" />
+
+    <Button
+        android:id="@+id/btnGiveChange"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="💵 Give Change → Check"
+        android:backgroundTint="#F3B22C"
+        android:textColor="#1A2415"
+        android:padding="16dp" />
+
+</LinearLayout>
