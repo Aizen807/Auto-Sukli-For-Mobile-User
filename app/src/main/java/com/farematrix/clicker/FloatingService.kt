@@ -1,12 +1,19 @@
 package com.farematrix.clicker
 
-import android.app.*
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
 import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
-import android.view.*
+import android.view.Gravity
+import android.view.LayoutInflater
+import android.view.MotionEvent
+import android.view.View
+import android.view.WindowManager
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import androidx.core.content.edit
@@ -16,14 +23,14 @@ class FloatingService : Service() {
     private lateinit var windowManager: WindowManager
     private lateinit var prefs: SharedPreferences
     private val targetViews = mutableMapOf<String, View>()
-    val targetPositions = mutableMapOf<String, Pair<Float, Float>>()
+    private val targetPositions = mutableMapOf<String, Pair<Float, Float>>()
 
-    val moneyKeys = listOf("50", "20", "10", "5", "1")
-    val allKeys = moneyKeys + "CHECK"
+    private val moneyKeys = listOf("50", "20", "10", "5", "1")
+    private val allKeys = moneyKeys + "CHECK"
 
     companion object {
-        var isRunning = false
-        var instance: FloatingService? = null
+        @Volatile var isRunning = false
+        @Volatile var instance: FloatingService? = null
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -40,35 +47,37 @@ class FloatingService : Service() {
     private fun buildNotification(): Notification {
         val channelId = "floating_clicker"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val ch = NotificationChannel(channelId, "Clicker", NotificationManager.IMPORTANCE_LOW)
-            (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(ch)
+            val channel = NotificationChannel(channelId, "Clicker", NotificationManager.IMPORTANCE_LOW)
+            (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(channel)
         }
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("Auto Sukli Clicker")
             .setContentText("Targets active")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setOngoing(true)
             .build()
     }
 
     private fun setupOverlays() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-        else WindowManager.LayoutParams.TYPE_PHONE
-
+        } else {
+            WindowManager.LayoutParams.TYPE_PHONE
+        }
         val defaults = mapOf(
-            "50"    to Pair(150f, 400f),
-            "20"    to Pair(280f, 500f),
-            "10"    to Pair(410f, 400f),
-            "5"     to Pair(280f, 650f),
-            "1"     to Pair(410f, 650f),
-            "CHECK" to Pair(150f, 800f)
+            "50" to (150f to 400f),
+            "20" to (280f to 500f),
+            "10" to (410f to 400f),
+            "5" to (280f to 650f),
+            "1" to (410f to 650f),
+            "CHECK" to (150f to 800f)
         )
 
         for (key in allKeys) {
-            val savedX = prefs.getFloat("x_$key", defaults[key]!!.first)
-            val savedY = prefs.getFloat("y_$key", defaults[key]!!.second)
-
+            val defaultPosition = defaults.getValue(key)
+            val savedX = prefs.getFloat("x_$key", defaultPosition.first)
+            val savedY = prefs.getFloat("y_$key", defaultPosition.second)
             val params = WindowManager.LayoutParams(
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.WRAP_CONTENT,
@@ -82,23 +91,24 @@ class FloatingService : Service() {
             }
 
             val view = LayoutInflater.from(this).inflate(R.layout.floating_target, null)
-            val label = view.findViewById<TextView>(R.id.targetLabel)
-            label.text = if (key == "CHECK") "✓" else key
+            view.findViewById<TextView>(R.id.targetLabel).text = if (key == "CHECK") "✓" else key
+            if (key == "CHECK") {
+                view.findViewById<View>(R.id.circleBody).setBackgroundResource(R.drawable.target_bg_check)
+            }
 
-            val circle = view.findViewById<View>(R.id.circleBody)
-            if (key == "CHECK") circle.setBackgroundResource(R.drawable.target_bg_check)
-
-            circle.setOnTouchListener(object : View.OnTouchListener {
+            view.findViewById<View>(R.id.circleBody).setOnTouchListener(object : View.OnTouchListener {
                 private var startX = 0
                 private var startY = 0
                 private var touchX = 0f
                 private var touchY = 0f
 
                 override fun onTouch(v: View, event: MotionEvent): Boolean {
-                    when (event.action) {
+                    when (event.actionMasked) {
                         MotionEvent.ACTION_DOWN -> {
-                            startX = params.x; startY = params.y
-                            touchX = event.rawX; touchY = event.rawY
+                            startX = params.x
+                            startY = params.y
+                            touchX = event.rawX
+                            touchY = event.rawY
                             return true
                         }
                         MotionEvent.ACTION_MOVE -> {
@@ -108,16 +118,18 @@ class FloatingService : Service() {
                             savePosition(key, params.x, params.y, view)
                             return true
                         }
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> return true
                     }
                     return false
                 }
             })
 
             view.findViewById<View>(R.id.closeBtn).setOnClickListener {
-                windowManager.removeView(view)
+                if (view.isAttachedToWindow) windowManager.removeView(view)
                 targetViews.remove(key)
                 targetPositions.remove(key)
-                prefs.edit { putFloat("x_$key", -9999f); putFloat("y_$key", -9999f) }
+                // Clearing the saved position makes this target return to its default on restart.
+                prefs.edit { remove("x_$key"); remove("y_$key") }
             }
 
             windowManager.addView(view, params)
@@ -139,10 +151,11 @@ class FloatingService : Service() {
     override fun onDestroy() {
         isRunning = false
         instance = null
-        for ((_, view) in targetViews) {
+        for (view in targetViews.values) {
             if (view.isAttachedToWindow) windowManager.removeView(view)
         }
         targetViews.clear()
+        targetPositions.clear()
         super.onDestroy()
     }
 }
