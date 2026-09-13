@@ -35,17 +35,14 @@ class FloatingService : Service() {
     private val targetPositions = mutableMapOf<String, Pair<Float, Float>>()
     private var controllerView: View? = null
     private var sequenceJob: Job? = null
+    private var targetsLocked = false
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     private val moneyKeys = listOf("50", "20", "10", "5", "1")
     private val allKeys = moneyKeys + "CHECK"
     private val defaults = mapOf(
-        "50" to (150f to 400f),
-        "20" to (280f to 500f),
-        "10" to (410f to 400f),
-        "5" to (280f to 650f),
-        "1" to (410f to 650f),
-        "CHECK" to (150f to 800f)
+        "50" to (150f to 400f), "20" to (280f to 500f), "10" to (410f to 400f),
+        "5" to (280f to 650f), "1" to (410f to 650f), "CHECK" to (150f to 800f)
     )
 
     companion object {
@@ -63,7 +60,7 @@ class FloatingService : Service() {
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         startForeground(1, buildNotification())
         setupController()
-        restoreAllTargets()
+        restoreAllTargets(showMessage = false)
     }
 
     private fun buildNotification(): Notification {
@@ -74,7 +71,7 @@ class FloatingService : Service() {
         }
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("Auto Sukli Controller")
-            .setContentText("▶ Play change  + Restore targets")
+            .setContentText("▶ Play  ■ Stop  + Restore  🔓 Lock")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setOngoing(true)
             .build()
@@ -82,34 +79,30 @@ class FloatingService : Service() {
 
     private fun overlayType(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
         WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-    } else {
-        WindowManager.LayoutParams.TYPE_PHONE
-    }
+    } else WindowManager.LayoutParams.TYPE_PHONE
 
     private fun setupController() {
         val view = LayoutInflater.from(this).inflate(R.layout.floating_controller, null)
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
-            overlayType(),
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-            PixelFormat.TRANSLUCENT
+            overlayType(), WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.END
             x = 12
             y = 120
         }
         view.findViewById<Button>(R.id.controllerPlay).setOnClickListener { playSavedChange() }
+        view.findViewById<Button>(R.id.controllerStop).setOnClickListener { stopPlayback() }
         view.findViewById<Button>(R.id.controllerRestore).setOnClickListener { restoreAllTargets() }
+        view.findViewById<Button>(R.id.controllerLock).setOnClickListener { toggleTargetLock() }
         windowManager.addView(view, params)
         controllerView = view
     }
 
-    fun restoreAllTargets() {
-        for (key in allKeys) {
-            if (!targetViews.containsKey(key)) createTarget(key)
-        }
-        Toast.makeText(this, "All sukli targets restored", Toast.LENGTH_SHORT).show()
+    fun restoreAllTargets(showMessage: Boolean = true) {
+        for (key in allKeys) if (!targetViews.containsKey(key)) createTarget(key)
+        if (showMessage) Toast.makeText(this, "All sukli targets restored", Toast.LENGTH_SHORT).show()
     }
 
     private fun createTarget(key: String) {
@@ -117,17 +110,13 @@ class FloatingService : Service() {
         val savedX = prefs.getFloat("x_$key", defaultPosition.first)
         val savedY = prefs.getFloat("y_$key", defaultPosition.second)
         val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            overlayType(),
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-            PixelFormat.TRANSLUCENT
+            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+            overlayType(), WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
             x = savedX.toInt()
             y = savedY.toInt()
         }
-
         val view = LayoutInflater.from(this).inflate(R.layout.floating_target, null)
         view.findViewById<TextView>(R.id.targetLabel).text = if (key == "CHECK") "✓" else key
         if (key == "CHECK") view.findViewById<View>(R.id.circleBody)
@@ -138,14 +127,12 @@ class FloatingService : Service() {
             private var startY = 0
             private var touchX = 0f
             private var touchY = 0f
-
             override fun onTouch(v: View, event: MotionEvent): Boolean {
+                if (targetsLocked) return true
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
-                        startX = params.x
-                        startY = params.y
-                        touchX = event.rawX
-                        touchY = event.rawY
+                        startX = params.x; startY = params.y
+                        touchX = event.rawX; touchY = event.rawY
                         return true
                     }
                     MotionEvent.ACTION_MOVE -> {
@@ -160,22 +147,31 @@ class FloatingService : Service() {
                 return false
             }
         })
-
         view.findViewById<View>(R.id.closeBtn).setOnClickListener {
+            if (targetsLocked) return@setOnClickListener
             if (view.isAttachedToWindow) windowManager.removeView(view)
             targetViews.remove(key)
             targetPositions.remove(key)
         }
         windowManager.addView(view, params)
         targetViews[key] = view
+        applyLockState(view)
         view.post { savePosition(key, params.x, params.y, view) }
     }
 
+    private fun applyLockState(view: View) {
+        view.findViewById<View>(R.id.closeBtn).visibility = if (targetsLocked) View.GONE else View.VISIBLE
+    }
+
+    private fun toggleTargetLock() {
+        targetsLocked = !targetsLocked
+        targetViews.values.forEach(::applyLockState)
+        controllerView?.findViewById<Button>(R.id.controllerLock)?.text = if (targetsLocked) "🔒" else "🔓"
+        Toast.makeText(this, if (targetsLocked) "Targets locked" else "Targets unlocked", Toast.LENGTH_SHORT).show()
+    }
+
     private fun savePosition(key: String, x: Int, y: Int, view: View) {
-        prefs.edit {
-            putFloat("x_$key", x.toFloat())
-            putFloat("y_$key", y.toFloat())
-        }
+        prefs.edit { putFloat("x_$key", x.toFloat()); putFloat("y_$key", y.toFloat()) }
         targetPositions[key] = Pair(x + view.width / 2f, y + view.height / 2f)
     }
 
@@ -186,11 +182,11 @@ class FloatingService : Service() {
             Toast.makeText(this, "Ginagawa pa ang sukli", Toast.LENGTH_SHORT).show()
             return
         }
-        val saved = getSharedPreferences("fare_session", MODE_PRIVATE)
-            .getString("pending_sequence", "") ?: ""
+        val session = getSharedPreferences("fare_session", MODE_PRIVATE)
+        val saved = session.getString("pending_sequence", "") ?: ""
         val sequence = saved.split(",").filter { it.isNotBlank() }
         if (sequence.isEmpty()) {
-            Toast.makeText(this, "Pumili muna ng trip at kalkulahin ang sukli", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Pumili muna ng trip at i-save ang sukli", Toast.LENGTH_LONG).show()
             return
         }
         val accessibilityService = AutoClickService.instance
@@ -200,8 +196,10 @@ class FloatingService : Service() {
         }
         sequenceJob = scope.launch {
             try {
+                // Hide target windows while dispatchGesture runs so they cannot intercept playback taps.
+                targetViews.values.forEach { it.visibility = View.INVISIBLE }
                 for (key in sequence) {
-                    val position = getTargetCenter(key)
+                    val position = targetPositions[key]
                     if (position == null) {
                         Toast.makeText(this@FloatingService, "Ibalik muna ang target: $key gamit ang +", Toast.LENGTH_LONG).show()
                         break
@@ -210,20 +208,26 @@ class FloatingService : Service() {
                     delay(if (key == "CHECK") 400L else 250L)
                 }
             } finally {
+                targetViews.values.forEach { it.visibility = View.VISIBLE }
                 sequenceJob = null
             }
         }
     }
 
+    private fun stopPlayback() {
+        if (sequenceJob?.isActive == true) {
+            sequenceJob?.cancel()
+            Toast.makeText(this, "Auto sukli stopped", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     override fun onDestroy() {
-        sequenceJob?.cancel()
+        stopPlayback()
         scope.cancel()
         isRunning = false
         instance = null
         controllerView?.let { if (it.isAttachedToWindow) windowManager.removeView(it) }
-        for (view in targetViews.values) {
-            if (view.isAttachedToWindow) windowManager.removeView(view)
-        }
+        targetViews.values.forEach { if (it.isAttachedToWindow) windowManager.removeView(it) }
         controllerView = null
         targetViews.clear()
         targetPositions.clear()

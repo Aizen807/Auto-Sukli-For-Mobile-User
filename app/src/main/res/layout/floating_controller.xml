@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="72dp"
+    android:layout_width="84dp"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:gravity="center"
@@ -9,22 +9,42 @@
 
     <Button
         android:id="@+id/controllerPlay"
-        android:layout_width="60dp"
-        android:layout_height="60dp"
+        android:layout_width="70dp"
+        android:layout_height="54dp"
         android:text="▶"
-        android:textSize="28sp"
+        android:textSize="26sp"
         android:textColor="#FFFFFF"
         android:backgroundTint="#2563EB"
         android:contentDescription="Start automatic change" />
 
     <Button
+        android:id="@+id/controllerStop"
+        android:layout_width="70dp"
+        android:layout_height="48dp"
+        android:text="■"
+        android:textSize="22sp"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#B23A2E"
+        android:contentDescription="Stop automatic change" />
+
+    <Button
         android:id="@+id/controllerRestore"
-        android:layout_width="60dp"
-        android:layout_height="60dp"
+        android:layout_width="70dp"
+        android:layout_height="54dp"
         android:text="+"
-        android:textSize="34sp"
+        android:textSize="30sp"
         android:textColor="#FFFFFF"
         android:backgroundTint="#3EAD4A"
         android:contentDescription="Restore all targets" />
+
+    <Button
+        android:id="@+id/controllerLock"
+        android:layout_width="70dp"
+        android:layout_height="48dp"
+        android:text="🔓"
+        android:textSize="20sp"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#59636E"
+        android:contentDescription="Lock or unlock targets" />
 
 </LinearLayout>

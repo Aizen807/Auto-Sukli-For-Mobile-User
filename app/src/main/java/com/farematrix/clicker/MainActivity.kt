@@ -34,7 +34,6 @@ class MainActivity : AppCompatActivity() {
         ))
     )
 
-    private val passengerTypes = listOf("Regular", "Student", "Senior")
     private lateinit var statusText: TextView
     private lateinit var fareResult: TextView
     private lateinit var breakdownResult: TextView
@@ -43,8 +42,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var routeSpinner: Spinner
     private lateinit var pickupSpinner: Spinner
     private lateinit var dropoffSpinner: Spinner
-    private lateinit var passengerTypeSpinner: Spinner
-    private lateinit var passengerCountInput: EditText
+    private lateinit var regularCountInput: EditText
+    private lateinit var studentCountInput: EditText
+    private lateinit var seniorCountInput: EditText
     private lateinit var paymentInput: EditText
     private lateinit var calculateButton: Button
 
@@ -60,13 +60,13 @@ class MainActivity : AppCompatActivity() {
         routeSpinner = findViewById(R.id.spRoute)
         pickupSpinner = findViewById(R.id.spPickup)
         dropoffSpinner = findViewById(R.id.spDropoff)
-        passengerTypeSpinner = findViewById(R.id.spPassengerType)
-        passengerCountInput = findViewById(R.id.etPassengerCount)
+        regularCountInput = findViewById(R.id.etRegularCount)
+        studentCountInput = findViewById(R.id.etStudentCount)
+        seniorCountInput = findViewById(R.id.etSeniorCount)
         paymentInput = findViewById(R.id.etPayment)
         calculateButton = findViewById(R.id.btnCalculateAndGive)
 
         setupSpinner(routeSpinner, routes.map { it.label })
-        setupSpinner(passengerTypeSpinner, passengerTypes)
         updateStops(0)
 
         routeSpinner.setOnItemSelectedListener(SimpleItemSelectedListener { updateStops(it) })
@@ -125,7 +125,9 @@ class MainActivity : AppCompatActivity() {
         val route = routes.getOrNull(routeSpinner.selectedItemPosition) ?: return
         val pickupIndex = stopIndex(route, pickupSpinner.selectedItem?.toString())
         val dropoffIndex = stopIndex(route, dropoffSpinner.selectedItem?.toString())
-        val passengerCount = passengerCountInput.text.toString().toIntOrNull()
+        val regularCount = regularCountInput.text.toString().toIntOrNull() ?: 0
+        val studentCount = studentCountInput.text.toString().toIntOrNull() ?: 0
+        val seniorCount = seniorCountInput.text.toString().toIntOrNull() ?: 0
         val payment = paymentInput.text.toString().toDoubleOrNull()
 
         if (pickupIndex < 0 || dropoffIndex < 0) {
@@ -136,7 +138,8 @@ class MainActivity : AppCompatActivity() {
             showError("Magkaiba dapat ang pickup at drop-off.")
             return
         }
-        if (passengerCount == null || passengerCount <= 0) {
+        if (regularCount + studentCount + seniorCount <= 0 ||
+            regularCount < 0 || studentCount < 0 || seniorCount < 0) {
             showError("Ilagay ang bilang ng pasahero.")
             return
         }
@@ -147,9 +150,10 @@ class MainActivity : AppCompatActivity() {
 
         val units = abs(pickupIndex - dropoffIndex) + 1
         val extraUnits = (units - 4).coerceAtLeast(0)
-        val isReduced = passengerTypeSpinner.selectedItemPosition != 0
-        val fareEach = (if (isReduced) 11 else 13) + extraUnits * 2
-        val totalFare = fareEach * passengerCount
+        val regularFare = 13 + extraUnits * 2
+        val reducedFare = 11 + extraUnits * 2
+        val totalPassengers = regularCount + studentCount + seniorCount
+        val totalFare = regularCount * regularFare + (studentCount + seniorCount) * reducedFare
         val change = payment - totalFare
 
         fareResult.text = "Fare: ₱$totalFare"
@@ -158,8 +162,11 @@ class MainActivity : AppCompatActivity() {
         } else {
             "Bulakan → ${route.label.substringBefore(" ↔")}"
         }
-        breakdownResult.text = "$direction\n$units unit(s), ₱$fareEach x $passengerCount " +
-            "${passengerTypeSpinner.selectedItem} passenger(s)"
+        val parts = mutableListOf<String>()
+        if (regularCount > 0) parts.add("$regularCount regular × ₱$regularFare")
+        if (studentCount > 0) parts.add("$studentCount student × ₱$reducedFare")
+        if (seniorCount > 0) parts.add("$seniorCount senior × ₱$reducedFare")
+        breakdownResult.text = "$direction\n$units unit(s), $totalPassengers passenger(s)\n${parts.joinToString(" + ")}"
 
         if (change < 0) {
             changeResult.setTextColor(getColor(android.R.color.holo_red_light))
@@ -226,8 +233,9 @@ class MainActivity : AppCompatActivity() {
     private fun resetTrip() {
         routeSpinner.setSelection(0)
         updateStops(0)
-        passengerTypeSpinner.setSelection(0)
-        passengerCountInput.setText("1")
+        regularCountInput.setText("1")
+        studentCountInput.text.clear()
+        seniorCountInput.text.clear()
         paymentInput.text.clear()
         fareResult.text = "Fare: ₱0"
         breakdownResult.text = "Pumili ng trip details."

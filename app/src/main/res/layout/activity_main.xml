@@ -103,33 +103,42 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Passenger type"
-            android:textColor="#F1E9D2" />
-
-        <Spinner
-            android:id="@+id/spPassengerType"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="#F1E9D2"
-            android:layout_marginBottom="10dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Number of passengers"
+            android:text="Passenger counts"
             android:textColor="#F1E9D2" />
 
         <EditText
-            android:id="@+id/etPassengerCount"
+            android:id="@+id/etRegularCount"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Halimbawa: 1"
+            android:hint="Regular passengers"
             android:inputType="number"
             android:textColor="#10160D"
             android:textColorHint="#666666"
             android:background="#F1E9D2"
             android:padding="12dp"
-            android:text="1"
+            android:text="1" />
+
+        <EditText
+            android:id="@+id/etStudentCount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Student passengers"
+            android:inputType="number"
+            android:textColor="#10160D"
+            android:textColorHint="#666666"
+            android:background="#F1E9D2"
+            android:padding="12dp" />
+
+        <EditText
+            android:id="@+id/etSeniorCount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Senior passengers"
+            android:inputType="number"
+            android:textColor="#10160D"
+            android:textColorHint="#666666"
+            android:background="#F1E9D2"
+            android:padding="12dp"
             android:layout_marginBottom="10dp" />
 
         <TextView

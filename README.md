@@ -53,11 +53,12 @@ A debug APK is suitable for testing on your own phone. It is not a Play Store re
 4. Allow the app to display over other apps.
 5. Move the ₱50, ₱20, ₱10, ₱5, ₱1, and check targets to the correct positions in the cashier/payment screen.
 6. Choose the route, pickup, drop-off, passenger type, and passenger count.
-7. Enter the passenger's payment amount.
-8. Tap **CALCULATE FARE + SAVE SUKLI**.
-9. You may now close or leave the main app. The floating controller remains available.
-10. Tap the blue **▶ Play** button on the floating controller to start the saved auto-sukli sequence.
-11. If all denomination targets were closed, tap the green **+** button to restore them. The controller itself stays visible and cannot be closed by closing denomination targets.
+7. Enter the Regular, Student, and Senior passenger counts. You can use any combination, such as 1 regular + 1 student.
+8. Enter the passenger's payment amount.
+9. Tap **CALCULATE FARE + SAVE SUKLI**.
+10. You may now close or leave the main app. The floating controller remains available.
+11. Tap the blue **▶ Play** button on the floating controller to start the saved auto-sukli sequence.
+12. If all denomination targets were closed, tap the green **+** button to restore them. The controller itself stays visible and cannot be closed by closing denomination targets.
 
 For example, if the app calculates ₱35 fare and the passenger pays ₱50, it displays ₱15 change and taps the ₱10, ₱5, and check targets.
 
@@ -69,9 +70,9 @@ Status: 50 + 20 + 10 + 5
 Auto-click: highest to lowest, then ✓
 ```
 
-The app calculates this sequence using the available targets in descending order: ₱50, ₱20, ₱10, ₱5, then ₱1. It taps each matching floating target and finally taps the check target.
+The app calculates this sequence using the available targets in descending order: ₱50, ₱20, ₱10, ₱5, then ₱1. It temporarily hides the targets while Accessibility playback runs so the overlay windows do not intercept the underlying app's buttons, then restores them after playback.
 
-The floating controller is intentionally persistent: the blue Play button starts the last saved sequence even when the main app screen is no longer open, while the green Plus button restores every closed denomination target.
+The floating controller is intentionally persistent: the blue Play button starts the last saved sequence even when the main app screen is no longer open, the red Stop button cancels playback, the green Plus button restores every closed denomination target, and the lock button prevents accidental target movement or closing while the layout is ready.
 
 ## Important safety note
 
@@ -80,6 +81,10 @@ Accessibility access allows the app to perform screen gestures. Enable it only f
 ## Current limitations
 
 - The supported denominations are fixed at ₱50, ₱20, ₱10, ₱5, and ₱1.
-- The calculator currently applies one passenger type to the entered passenger count. Mixed regular/student/senior groups can be added in a later update.
+- Mixed regular, student, and senior passenger counts are supported.
 - The app currently creates a debug APK through GitHub Actions.
-- A production release build still needs a private signing key and release configuration.
+- A signed-release workflow is included, but it needs the private GitHub Secrets described below.
+
+## Signed release APK
+
+The repository includes `.github/workflows/release.yml`. Before using it, create a private Android keystore and add these GitHub Actions Secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. Never commit the keystore or passwords. Then run **Actions → Release signed APK → Run workflow** with a version tag such as `v1.0.0`. The workflow publishes the signed APK under GitHub Releases.
