@@ -188,7 +188,13 @@ class FloatingService : Service() {
 
     private fun savePosition(key: String, x: Int, y: Int, view: View) {
         prefs.edit { putFloat("x_$key", x.toFloat()); putFloat("y_$key", y.toFloat()) }
-        targetPositions[key] = Pair(x + view.width / 2f, y + view.height / 2f)
+        val circle = view.findViewById<View>(R.id.circleBody)
+        val location = IntArray(2)
+        circle.getLocationOnScreen(location)
+        targetPositions[key] = Pair(
+            location[0] + circle.width / 2f,
+            location[1] + circle.height / 2f
+        )
     }
 
     fun getTargetCenter(key: String): Pair<Float, Float>? = targetPositions[key]
@@ -196,9 +202,13 @@ class FloatingService : Service() {
     private fun liveTargetCenter(key: String): Pair<Float, Float>? {
         val view = targetViews[key] ?: return null
         if (!view.isAttachedToWindow) return null
+        val circle = view.findViewById<View>(R.id.circleBody)
         val location = IntArray(2)
-        view.getLocationOnScreen(location)
-        return Pair(location[0] + view.width / 2f, location[1] + view.height / 2f)
+        circle.getLocationOnScreen(location)
+        return Pair(
+            location[0] + circle.width / 2f,
+            location[1] + circle.height / 2f
+        )
     }
 
     private fun setTargetsTouchThrough(touchThrough: Boolean) {
