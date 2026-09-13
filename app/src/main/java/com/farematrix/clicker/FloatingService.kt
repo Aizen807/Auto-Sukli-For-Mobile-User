@@ -235,6 +235,17 @@ class FloatingService : Service() {
             return
         }
         val session = getSharedPreferences("fare_session", MODE_PRIVATE)
+
+        // MainActivity debounces recalculation while the user is still typing the
+        // payment amount. If a calculation is mid-flight, pending_sequence may still
+        // hold a stale value from a half-typed number (e.g. "5" before "50" finishes
+        // being entered) — refuse to play until it settles instead of tapping the
+        // wrong denominations.
+        if (session.getBoolean("calc_pending", false)) {
+            Toast.makeText(this, "Sandali, kinakalkula pa ang sukli...", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         val saved = session.getString("pending_sequence", "") ?: ""
         val sequence = saved.split(",").filter { it.isNotBlank() }
         if (sequence.isEmpty()) {
