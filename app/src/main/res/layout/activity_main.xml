@@ -28,10 +28,12 @@
             android:textSize="14sp"
             android:layout_marginBottom="14dp" />
 
+        <!-- Status panel -->
         <TextView
             android:id="@+id/statusText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:text="Accessibility: ❌ OFF&#10;Overlay Service: ❌ OFF"
             android:textColor="#F1E9D2"
             android:textSize="14sp"
             android:padding="12dp"
@@ -50,15 +52,16 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="2. Show / Arrange Targets"
-            android:layout_marginBottom="18dp" />
+            android:layout_marginBottom="8dp" />
 
         <Button
             android:id="@+id/btnController"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Show Floating Controller"
+            android:text="3. Show Floating Controller"
             android:layout_marginBottom="18dp" />
 
+        <!-- Trip details -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -166,6 +169,7 @@
             android:padding="12dp"
             android:layout_marginBottom="14dp" />
 
+        <!-- Results -->
         <TextView
             android:id="@+id/tvFareResult"
             android:layout_width="match_parent"
@@ -201,6 +205,7 @@
             android:padding="14dp"
             android:layout_marginBottom="12dp" />
 
+        <!-- Auto-click order preview -->
         <TextView
             android:id="@+id/tvAutoSequence"
             android:layout_width="match_parent"
