@@ -2,12 +2,14 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:paddingBottom="30dp">
 
     <View
         android:id="@+id/circleBody"
         android:layout_width="56dp"
         android:layout_height="56dp"
+        android:layout_gravity="center"
         android:background="@drawable/target_bg" />
 
     <TextView
@@ -19,6 +21,23 @@
         android:textColor="#F3B22C"
         android:textSize="20sp"
         android:textStyle="bold" />
+
+    <!-- Shows which app this target is linked to, once assigned via long-press.
+         Hidden (GONE) until a link exists. -->
+    <TextView
+        android:id="@+id/targetAppLabel"
+        android:layout_width="76dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal|bottom"
+        android:gravity="center"
+        android:text=""
+        android:textColor="#F1E9D2"
+        android:textSize="9sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:background="#CC000000"
+        android:padding="2dp"
+        android:visibility="gone" />
 
     <ImageButton
         android:id="@+id/closeBtn"
