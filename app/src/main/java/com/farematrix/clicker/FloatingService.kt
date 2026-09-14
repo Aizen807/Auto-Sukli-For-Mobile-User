@@ -117,6 +117,8 @@ class FloatingService : Service() {
     /** Creates (or re-creates, after Restore) a single denomination target. */
     private fun addOrRecreateTarget(key: String) {
         if (targetViews.containsKey(key)) return
+        // No longer closed once it's (re)created -- Restore always clears this.
+        prefs.edit { putBoolean("closed_$key", false) }
 
         val defaults = mapOf(
             "50"    to Pair(150f, 400f),
@@ -127,8 +129,13 @@ class FloatingService : Service() {
             "CHECK" to Pair(150f, 800f)
         )
 
-        val savedX = prefs.getFloat("x_$key", defaults[key]!!.first)
-        val savedY = prefs.getFloat("y_$key", defaults[key]!!.second)
+        // Self-heals any position saved as -9999 by the old (buggy) close handler,
+        // from before this fix -- falls back to the default spot instead of
+        // resurrecting an off-screen coordinate.
+        val rawX = prefs.getFloat("x_$key", defaults[key]!!.first)
+        val rawY = prefs.getFloat("y_$key", defaults[key]!!.second)
+        val savedX = if (rawX < 0f) defaults[key]!!.first else rawX
+        val savedY = if (rawY < 0f) defaults[key]!!.second else rawY
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -197,17 +204,19 @@ class FloatingService : Service() {
             }
         })
 
-        // Close button hides that single target (disabled while locked)
+        // Close button hides that single target (disabled while locked).
+        // IMPORTANT: this must NOT touch x_$key/y_$key -- doing so would overwrite
+        // the user's carefully-dragged position. It only marks the target as
+        // closed; restoreAllTargets() / addOrRecreateTarget() clears that flag
+        // and reuses the real saved position, so Restore brings it back exactly
+        // where it was left, not off-screen.
         view.findViewById<View>(R.id.closeBtn).setOnClickListener {
             if (locked) return@setOnClickListener
             windowManager.removeView(view)
             targetViews.remove(key)
             targetParams.remove(key)
             targetPositions.remove(key)
-            prefs.edit {
-                putFloat("x_$key", -9999f)
-                putFloat("y_$key", -9999f)
-            }
+            prefs.edit { putBoolean("closed_$key", true) }
         }
 
         windowManager.addView(view, params)
