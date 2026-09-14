@@ -7,30 +7,123 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import kotlin.math.abs
+import kotlin.math.max
+
+// ---------------------------------------------------------------------
+// Fare Matrix data — ported from the Fare Matrix PWA (dns-fare-guide1)
+// so both apps compute the exact same fare for the exact same trip.
+// ---------------------------------------------------------------------
+private data class RouteDef(val label: String, val units: List<List<String>>)
+
+private val ROUTES = linkedMapOf(
+    "balagtas" to RouteDef(
+        "Balagtas", listOf(
+            listOf("Bagumbayan", "San Jose"),
+            listOf("Matungao"),
+            listOf("Panginay Guiguinto"),
+            listOf("Panginay Balagtas"),
+            listOf("Wawa")
+        )
+    ),
+    "guiguinto" to RouteDef(
+        "Guiguinto", listOf(
+            listOf("Bagumbayan", "San Jose"),
+            listOf("Matungao"),
+            listOf("Tuktukan")
+        )
+    ),
+    "malolos" to RouteDef(
+        "Malolos", listOf(
+            listOf("Bagumbayan", "San Jose"),
+            listOf("Maysantol"),
+            listOf("San Nicolas"),
+            listOf("Pitpitan"),
+            listOf("Mambog"),
+            listOf("Matimbo"),
+            listOf("Panasahan"),
+            listOf("Bagna"),
+            listOf("Atlag"),
+            listOf("San Juan", "Sto. Rosario")
+        )
+    )
+)
+
+private const val MINIMUM_UNITS = 4
+private const val BASE_REGULAR_FARE = 13
+private const val BASE_REDUCED_FARE = 11
+private const val EXTRA_FARE_PER_UNIT = 2
+
+private data class FareResult(
+    val unitsCount: Int,
+    val extra: Int,
+    val regularFare: Int,
+    val reducedFare: Int,
+    val total: Int
+)
+
+private fun calculateFare(fromIdx: Int, toIdx: Int, regular: Int, student: Int, senior: Int): FareResult {
+    val unitsCount = abs(fromIdx - toIdx) + 1
+    val extra = max(0, unitsCount - MINIMUM_UNITS)
+    val regularFare = BASE_REGULAR_FARE + extra * EXTRA_FARE_PER_UNIT
+    val reducedFare = BASE_REDUCED_FARE + extra * EXTRA_FARE_PER_UNIT
+    val total = regular * regularFare + (student + senior) * reducedFare
+    return FareResult(unitsCount, extra, regularFare, reducedFare, total)
+}
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var statusText: TextView
-    private lateinit var sukliInput: EditText
-    private lateinit var resultText: TextView
-    private lateinit var giveBtn: Button
+    private lateinit var spRoute: Spinner
+    private lateinit var spPickup: Spinner
+    private lateinit var spDropoff: Spinner
+    private lateinit var etRegularCount: EditText
+    private lateinit var etStudentCount: EditText
+    private lateinit var etSeniorCount: EditText
+    private lateinit var etPayment: EditText
+    private lateinit var tvFareResult: TextView
+    private lateinit var tvBreakdown: TextView
+    private lateinit var tvChangeResult: TextView
+    private lateinit var tvAutoSequence: TextView
+    private lateinit var btnCalculateAndGive: Button
+    private lateinit var btnReset: Button
 
     private val mainHandler = Handler(Looper.getMainLooper())
-    private var playing = false
+    private val routeKeys = ROUTES.keys.toList()
+
+    // Flat (barangay name, unit index) list for the currently selected route
+    private var currentBarangays: List<Pair<String, Int>> = emptyList()
+    private var suppressRecalc = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         statusText = findViewById(R.id.statusText)
-        sukliInput = findViewById(R.id.etSukli)
-        resultText = findViewById(R.id.resultText)
-        giveBtn = findViewById(R.id.btnGiveChange)
+        spRoute = findViewById(R.id.spRoute)
+        spPickup = findViewById(R.id.spPickup)
+        spDropoff = findViewById(R.id.spDropoff)
+        etRegularCount = findViewById(R.id.etRegularCount)
+        etStudentCount = findViewById(R.id.etStudentCount)
+        etSeniorCount = findViewById(R.id.etSeniorCount)
+        etPayment = findViewById(R.id.etPayment)
+        tvFareResult = findViewById(R.id.tvFareResult)
+        tvBreakdown = findViewById(R.id.tvBreakdown)
+        tvChangeResult = findViewById(R.id.tvChangeResult)
+        tvAutoSequence = findViewById(R.id.tvAutoSequence)
+        btnCalculateAndGive = findViewById(R.id.btnCalculateAndGive)
+        btnReset = findViewById(R.id.btnReset)
 
         findViewById<Button>(R.id.btnAccessibility).setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
@@ -49,22 +142,34 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        giveBtn.setOnClickListener {
-            if (playing) {
-                Toast.makeText(this, "Tumatakbo pa ang sequence...", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+        // "3. Show Floating Controller" — brings the controller back after
+        // it was hidden with its own Hide button, without restarting the
+        // whole overlay service (which would also re-show every target).
+        findViewById<Button>(R.id.btnController).setOnClickListener {
+            val float = FloatingService.instance
+            if (float != null) {
+                float.showController()
+            } else if (Settings.canDrawOverlays(this)) {
+                startFloatingService()
+            } else {
+                startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:$packageName")
+                    )
+                )
             }
-            val amount = sukliInput.text.toString().trim().toIntOrNull()
-            if (amount == null || amount <= 0) {
-                Toast.makeText(this, "Ilagay ang sukli amount", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            if (amount > 500) {
-                Toast.makeText(this, "Max ₱500 lang", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            giveChange(amount)
         }
+
+        setupRouteSpinner()
+        setupRecalcListeners()
+
+        btnCalculateAndGive.setOnClickListener { recalcAndSave(showToast = true) }
+        btnReset.setOnClickListener { resetTrip() }
+
+        // Reflect the default trip details (1 regular passenger, default route)
+        // immediately instead of leaving the placeholder XML text on screen.
+        recalcAndSave(showToast = false)
     }
 
     override fun onResume() {
@@ -102,93 +207,168 @@ class MainActivity : AppCompatActivity() {
         mainHandler.postDelayed({ updateStatus() }, 500)
     }
 
+    // -----------------------------------------------------------------
+    // Trip details UI
+    // -----------------------------------------------------------------
+
+    private fun setupRouteSpinner() {
+        val labels = routeKeys.map { ROUTES[it]!!.label }
+        spRoute.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, labels).also {
+            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+        spRoute.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                buildPickupDropoffAdapters()
+                recalcAndSave(showToast = false)
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        buildPickupDropoffAdapters()
+    }
+
+    private fun buildPickupDropoffAdapters() {
+        val route = ROUTES[routeKeys[spRoute.selectedItemPosition]]!!
+        val flat = mutableListOf<Pair<String, Int>>()
+        route.units.forEachIndexed { idx, names -> names.forEach { flat.add(it to idx) } }
+        currentBarangays = flat
+
+        val names = flat.map { it.first }
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, names).also {
+            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+
+        suppressRecalc = true
+        spPickup.adapter = adapter
+        spDropoff.adapter = adapter
+        spPickup.setSelection(0)
+        spDropoff.setSelection(names.size - 1)
+        suppressRecalc = false
+
+        val itemListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                recalcAndSave(showToast = false)
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        spPickup.onItemSelectedListener = itemListener
+        spDropoff.onItemSelectedListener = itemListener
+    }
+
+    private fun setupRecalcListeners() {
+        val watcher = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                recalcAndSave(showToast = false)
+            }
+        }
+        etRegularCount.addTextChangedListener(watcher)
+        etStudentCount.addTextChangedListener(watcher)
+        etSeniorCount.addTextChangedListener(watcher)
+        etPayment.addTextChangedListener(watcher)
+    }
+
+    private fun intFromField(field: EditText): Int =
+        field.text.toString().trim().toIntOrNull() ?: 0
+
     /**
-     * Compute the greedy coin combination, then fire each tap SEQUENTIALLY,
-     * waiting for the system to confirm each one finished before starting
-     * the next. This is what fixes the "only CHECK registers" bug.
+     * Recomputes fare + change from the current trip details, updates the
+     * on-screen result, and pushes the resulting auto-click sequence to the
+     * floating controller so its ▶ Play button always reflects the latest
+     * trip — even after this screen is closed.
      */
-    private fun giveChange(amount: Int) {
-        val svc = AutoClickService.instance
-        val float = FloatingService.instance
+    private fun recalcAndSave(showToast: Boolean) {
+        if (suppressRecalc || currentBarangays.isEmpty()) return
 
-        if (svc == null) {
-            Toast.makeText(this, "Enable Accessibility Service muna (Settings → Accessibility)", Toast.LENGTH_LONG).show()
+        val fromIdx = currentBarangays.getOrNull(spPickup.selectedItemPosition)?.second ?: return
+        val toIdx = currentBarangays.getOrNull(spDropoff.selectedItemPosition)?.second ?: return
+
+        val regular = intFromField(etRegularCount)
+        val student = intFromField(etStudentCount)
+        val senior = intFromField(etSeniorCount)
+        val totalPax = regular + student + senior
+
+        if (totalPax <= 0) {
+            tvFareResult.text = "Fare: ₱0"
+            tvBreakdown.text = "Maglagay ng hindi bababa sa 1 pasahero."
+            tvChangeResult.text = "Sukli: ₱0"
+            tvAutoSequence.text = "Auto-click order: —"
+            FloatingService.instance?.updateSavedSequence(emptyList(), "Ready")
             return
         }
-        if (float == null) {
-            Toast.makeText(this, "I-tap muna ang 'Show Targets' para lumabas ang circles", Toast.LENGTH_LONG).show()
+
+        val result = calculateFare(fromIdx, toIdx, regular, student, senior)
+        tvFareResult.text = "Fare: ₱${result.total}"
+
+        val unitNote = if (result.unitsCount <= MINIMUM_UNITS)
+            "${result.unitsCount} unit(s), within minimum"
+        else
+            "${result.unitsCount} units, +${result.extra} beyond minimum"
+        tvBreakdown.text = "Regular ₱${result.regularFare} • Student/Senior ₱${result.reducedFare} • $unitNote"
+
+        val paymentText = etPayment.text.toString().trim()
+        val payment = paymentText.toDoubleOrNull()
+
+        if (payment == null) {
+            tvChangeResult.text = "Sukli: ₱0"
+            tvAutoSequence.text = "Auto-click order: —"
+            FloatingService.instance?.updateSavedSequence(emptyList(), "Ready")
             return
         }
 
-        // Greedy coin change — highest to lowest
+        if (payment < result.total) {
+            tvChangeResult.text = "Kulang ang bayad"
+            tvAutoSequence.text = "Auto-click order: —"
+            FloatingService.instance?.updateSavedSequence(emptyList(), "Kulang ang bayad")
+            if (showToast) Toast.makeText(this, "Kulang ang bayad para sa fare", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val change = Math.round(payment - result.total).toInt()
+        tvChangeResult.text = "Sukli: ₱$change"
+
+        // Greedy coin change — highest to lowest, matching the physical targets.
         val coins = listOf(50, 20, 10, 5, 1)
         val plan = mutableListOf<Int>()
-        var remaining = amount
+        var remaining = change
         for (c in coins) {
             while (remaining >= c) {
                 plan.add(c)
                 remaining -= c
             }
         }
-
         val sequence = plan.map { it.toString() } + "CHECK"
 
-        resultText.text = "₱$amount → ${plan.joinToString(" + ")} → ✓"
-        playing = true
-        giveBtn.isEnabled = false
-        giveBtn.text = "⏳ Tumatakbo..."
+        tvAutoSequence.text = if (plan.isEmpty())
+            "Auto-click order: ✓ lang (exact payment)"
+        else
+            "Auto-click order: ${plan.joinToString(" + ")} → ✓"
 
-        // Hide overlays so synthetic taps go THROUGH to the game underneath
-        float.hideAllTargets()
+        val statusLabel = "₱$change → ${plan.joinToString(" + ").ifEmpty { "0" }} → ✓"
+        FloatingService.instance?.updateSavedSequence(sequence, statusLabel)
 
-        // Small delay to let the INVISIBLE transition settle before the first tap
-        mainHandler.postDelayed({
-            tapStep(svc, float, sequence, 0)
-        }, 200L)
+        if (showToast) {
+            if (FloatingService.instance == null) {
+                Toast.makeText(this, "I-tap ang 'Show / Arrange Targets' para gumana ang Play button", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "Na-save ang sukli sequence", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
-    /**
-     * Fires sequence[index], then — only after the gesture completes —
-     * schedules sequence[index+1]. Recursion is safe here because the
-     * callback is guaranteed to fire exactly once.
-     */
-    private fun tapStep(
-        svc: AutoClickService,
-        float: FloatingService,
-        sequence: List<String>,
-        index: Int
-    ) {
-        if (index >= sequence.size) {
-            // All taps done — restore UI
-            float.showAllTargets()
-            playing = false
-            giveBtn.isEnabled = true
-            giveBtn.text = "💵 Give Change → Check"
-            Toast.makeText(this, "✅ Tapos na", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val key = sequence[index]
-        val pos = float.getTargetCenter(key)
-
-        if (pos == null) {
-            // Target was closed/missing — skip and continue
-            tapStep(svc, float, sequence, index + 1)
-            return
-        }
-
-        svc.tapAt(pos.first, pos.second) {
-            // This runs on the main thread AFTER the tap is confirmed done.
-            // Add a small settle delay so the game has time to process it.
-            val nextDelay = if (key == "CHECK") 350L else 180L
-            mainHandler.postDelayed({
-                tapStep(svc, float, sequence, index + 1)
-            }, nextDelay)
-        }
+    private fun resetTrip() {
+        suppressRecalc = true
+        etRegularCount.setText("1")
+        etStudentCount.setText("")
+        etSeniorCount.setText("")
+        etPayment.setText("")
+        spPickup.setSelection(0)
+        spDropoff.setSelection(currentBarangays.size - 1)
+        suppressRecalc = false
+        recalcAndSave(showToast = false)
     }
 
     override fun onDestroy() {
-        // Don't kill the floating service here — user might want it running.
         mainHandler.removeCallbacksAndMessages(null)
         super.onDestroy()
     }
