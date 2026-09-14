@@ -14,18 +14,9 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.widget.Button
 import android.widget.TextView
-import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.edit
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 class FloatingService : Service() {
 
@@ -33,22 +24,26 @@ class FloatingService : Service() {
     private lateinit var prefs: SharedPreferences
     private val targetViews = mutableMapOf<String, View>()
     private val targetParams = mutableMapOf<String, WindowManager.LayoutParams>()
-    private val targetPositions = mutableMapOf<String, Pair<Float, Float>>()
-    private var controllerView: View? = null
-    private var sequenceJob: Job? = null
-    private var targetsLocked = false
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
+    /**
+     * Stores the screen-space center (x, y) of each target.
+     * Read by MainActivity when it needs to fire taps.
+     */
+    val targetPositions = mutableMapOf<String, Pair<Float, Float>>()
 
     private val moneyKeys = listOf("50", "20", "10", "5", "1")
     private val allKeys = moneyKeys + "CHECK"
-    private val defaults = mapOf(
-        "50" to (150f to 400f), "20" to (280f to 500f), "10" to (410f to 400f),
-        "5" to (280f to 650f), "1" to (410f to 650f), "CHECK" to (150f to 800f)
-    )
+
+    private var targetsHidden = false
 
     companion object {
-        @Volatile var isRunning = false
-        @Volatile var instance: FloatingService? = null
+        @Volatile
+        var isRunning = false
+            private set
+
+        @Volatile
+        var instance: FloatingService? = null
+            private set
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -58,259 +53,190 @@ class FloatingService : Service() {
         isRunning = true
         instance = this
         prefs = getSharedPreferences("target_positions", MODE_PRIVATE)
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         startForeground(1, buildNotification())
-        setupController()
-        restoreAllTargets(showMessage = false)
+        setupOverlays()
     }
 
     private fun buildNotification(): Notification {
         val channelId = "floating_clicker"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, "Clicker", NotificationManager.IMPORTANCE_LOW)
-            (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(channel)
+            val ch = NotificationChannel(
+                channelId,
+                "Auto Sukli",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply { setShowBadge(false) }
+            (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
+                .createNotificationChannel(ch)
         }
         return NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Auto Sukli Controller")
-            .setContentText("▶ Play  ■ Stop  + Restore  🔓 Lock")
+            .setContentTitle("Auto Sukli is active")
+            .setContentText("Targets are showing on screen")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setOngoing(true)
             .build()
     }
 
-    private fun overlayType(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-    } else WindowManager.LayoutParams.TYPE_PHONE
+    private fun setupOverlays() {
+        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
 
-    private fun setupController() {
-        val view = LayoutInflater.from(this).inflate(R.layout.floating_controller, null)
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            overlayType(), WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.END
-            x = 12
-            y = 120
-        }
-        view.findViewById<Button>(R.id.controllerPlay).setOnClickListener { playSavedChange() }
-        view.findViewById<Button>(R.id.controllerStop).setOnClickListener { stopPlayback() }
-        view.findViewById<Button>(R.id.controllerRestore).setOnClickListener { restoreAllTargets() }
-        view.findViewById<Button>(R.id.controllerLock).setOnClickListener { toggleTargetLock() }
-        view.findViewById<Button>(R.id.controllerHide).setOnClickListener { hideController() }
-        windowManager.addView(view, params)
-        controllerView = view
-    }
+        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        else
+            @Suppress("DEPRECATION")
+            WindowManager.LayoutParams.TYPE_PHONE
 
-    fun hideController() {
-        controllerView?.visibility = View.GONE
-    }
+        val defaults = mapOf(
+            "50"    to Pair(150f, 400f),
+            "20"    to Pair(280f, 500f),
+            "10"    to Pair(410f, 400f),
+            "5"     to Pair(280f, 650f),
+            "1"     to Pair(410f, 650f),
+            "CHECK" to Pair(150f, 800f)
+        )
 
-    fun showController() {
-        controllerView?.visibility = View.VISIBLE
-    }
+        for (key in allKeys) {
+            val savedX = prefs.getFloat("x_$key", defaults[key]!!.first)
+            val savedY = prefs.getFloat("y_$key", defaults[key]!!.second)
 
-    private fun setPlaybackStatus(text: String) {
-        controllerView?.findViewById<TextView>(R.id.controllerStatus)?.text = text
-    }
-
-    fun toggleControllerVisibility() {
-        if (controllerView?.visibility == View.VISIBLE) hideController() else showController()
-    }
-
-    fun restoreAllTargets(showMessage: Boolean = true) {
-        for (key in allKeys) if (!targetViews.containsKey(key)) createTarget(key)
-        if (showMessage) Toast.makeText(this, "All sukli targets restored", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun createTarget(key: String) {
-        val defaultPosition = defaults.getValue(key)
-        val savedX = prefs.getFloat("x_$key", defaultPosition.first)
-        val savedY = prefs.getFloat("y_$key", defaultPosition.second)
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
-            overlayType(), WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = savedX.toInt()
-            y = savedY.toInt()
-        }
-        val view = LayoutInflater.from(this).inflate(R.layout.floating_target, null)
-        view.findViewById<TextView>(R.id.targetLabel).text = if (key == "CHECK") "✓" else key
-        if (key == "CHECK") view.findViewById<View>(R.id.circleBody)
-            .setBackgroundResource(R.drawable.target_bg_check)
-
-        view.findViewById<View>(R.id.circleBody).setOnTouchListener(object : View.OnTouchListener {
-            private var startX = 0
-            private var startY = 0
-            private var touchX = 0f
-            private var touchY = 0f
-            override fun onTouch(v: View, event: MotionEvent): Boolean {
-                if (targetsLocked) return true
-                when (event.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> {
-                        startX = params.x; startY = params.y
-                        touchX = event.rawX; touchY = event.rawY
-                        return true
-                    }
-                    MotionEvent.ACTION_MOVE -> {
-                        params.x = startX + (event.rawX - touchX).toInt()
-                        params.y = startY + (event.rawY - touchY).toInt()
-                        windowManager.updateViewLayout(view, params)
-                        savePosition(key, params.x, params.y, view)
-                        return true
-                    }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> return true
-                }
-                return false
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                type,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                PixelFormat.TRANSLUCENT
+            ).apply {
+                gravity = Gravity.TOP or Gravity.START
+                x = savedX.toInt()
+                y = savedY.toInt()
             }
-        })
-        view.findViewById<View>(R.id.closeBtn).setOnClickListener {
-            if (targetsLocked) return@setOnClickListener
-            if (view.isAttachedToWindow) windowManager.removeView(view)
-            targetViews.remove(key)
-            targetParams.remove(key)
-            targetPositions.remove(key)
+
+            val view = LayoutInflater.from(this)
+                .inflate(R.layout.floating_target, null)
+
+            val label = view.findViewById<TextView>(R.id.targetLabel)
+            label.text = if (key == "CHECK") "✓" else key
+
+            val circle = view.findViewById<View>(R.id.circleBody)
+            if (key == "CHECK") {
+                circle.setBackgroundResource(R.drawable.target_bg_check)
+            }
+
+            // Drag handler
+            circle.setOnTouchListener(object : View.OnTouchListener {
+                private var startX = 0
+                private var startY = 0
+                private var touchX = 0f
+                private var touchY = 0f
+                private var dragging = false
+
+                override fun onTouch(v: View, event: MotionEvent): Boolean {
+                    when (event.action) {
+                        MotionEvent.ACTION_DOWN -> {
+                            startX = params.x
+                            startY = params.y
+                            touchX = event.rawX
+                            touchY = event.rawY
+                            dragging = false
+                            return true
+                        }
+                        MotionEvent.ACTION_MOVE -> {
+                            val dx = event.rawX - touchX
+                            val dy = event.rawY - touchY
+                            if (!dragging && (Math.abs(dx) > 10 || Math.abs(dy) > 10)) {
+                                dragging = true
+                            }
+                            if (dragging) {
+                                params.x = startX + dx.toInt()
+                                params.y = startY + dy.toInt()
+                                windowManager.updateViewLayout(view, params)
+                                savePosition(key, params.x, params.y, view)
+                            }
+                            return true
+                        }
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                            if (dragging) {
+                                savePosition(key, params.x, params.y, view)
+                            }
+                            return true
+                        }
+                    }
+                    return false
+                }
+            })
+
+            // Close button hides that single target
+            view.findViewById<View>(R.id.closeBtn).setOnClickListener {
+                windowManager.removeView(view)
+                targetViews.remove(key)
+                targetParams.remove(key)
+                targetPositions.remove(key)
+                prefs.edit {
+                    putFloat("x_$key", -9999f)
+                    putFloat("y_$key", -9999f)
+                }
+            }
+
+            windowManager.addView(view, params)
+            targetViews[key] = view
+            targetParams[key] = params
+
+            // Once the view is laid out, compute the true center.
+            view.post { savePosition(key, params.x, params.y, view) }
         }
-        windowManager.addView(view, params)
-        targetViews[key] = view
-        targetParams[key] = params
-        applyLockState(view)
-        view.post { savePosition(key, params.x, params.y, view) }
-    }
-
-    private fun applyLockState(view: View) {
-        view.findViewById<View>(R.id.closeBtn).visibility = if (targetsLocked) View.GONE else View.VISIBLE
-    }
-
-    private fun toggleTargetLock() {
-        targetsLocked = !targetsLocked
-        targetViews.values.forEach(::applyLockState)
-        controllerView?.findViewById<Button>(R.id.controllerLock)?.text = if (targetsLocked) "🔒" else "🔓"
-        Toast.makeText(this, if (targetsLocked) "Targets locked" else "Targets unlocked", Toast.LENGTH_SHORT).show()
     }
 
     private fun savePosition(key: String, x: Int, y: Int, view: View) {
-        prefs.edit { putFloat("x_$key", x.toFloat()); putFloat("y_$key", y.toFloat()) }
-        val circle = view.findViewById<View>(R.id.circleBody)
-        val location = IntArray(2)
-        circle.getLocationOnScreen(location)
-        targetPositions[key] = Pair(
-            location[0] + circle.width / 2f,
-            location[1] + circle.height / 2f
-        )
+        prefs.edit {
+            putFloat("x_$key", x.toFloat())
+            putFloat("y_$key", y.toFloat())
+        }
+        // view.width/height are the ACTUAL rendered size AFTER layout.
+        // Fall back to a sensible default if not yet measured.
+        val w = if (view.width > 0) view.width else 88  // 56dp + 16dp*2 padding ≈ 88px on mdpi
+        val h = if (view.height > 0) view.height else 88
+        targetPositions[key] = Pair(x + w / 2f, y + h / 2f)
     }
 
-    fun getTargetCenter(key: String): Pair<Float, Float>? = targetPositions[key]
-
-    private fun liveTargetCenter(key: String): Pair<Float, Float>? {
+    fun getTargetCenter(key: String): Pair<Float, Float>? {
+        targetPositions[key]?.let { return it }
+        // Fallback: recompute from the current view bounds
         val view = targetViews[key] ?: return null
-        if (!view.isAttachedToWindow) return null
-        val circle = view.findViewById<View>(R.id.circleBody)
-        val location = IntArray(2)
-        circle.getLocationOnScreen(location)
-        return Pair(
-            location[0] + circle.width / 2f,
-            location[1] + circle.height / 2f
-        )
+        val params = targetParams[key] ?: return null
+        val w = if (view.width > 0) view.width else 88
+        val h = if (view.height > 0) view.height else 88
+        val center = Pair(params.x + w / 2f, params.y + h / 2f)
+        targetPositions[key] = center
+        return center
     }
 
-    private fun setTargetsTouchThrough(touchThrough: Boolean) {
-        targetParams.forEach { (key, params) ->
-            params.flags = if (touchThrough) {
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-            } else {
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-            }
-            targetViews[key]?.let { view ->
-                if (view.isAttachedToWindow) windowManager.updateViewLayout(view, params)
-            }
-        }
+    /**
+     * Hide all target circles before playback so they don't intercept the
+     * synthetic taps meant for the underlying app. We use INVISIBLE (not
+     * GONE) so the layout and saved coordinates stay intact.
+     */
+    fun hideAllTargets() {
+        if (targetsHidden) return
+        targetsHidden = true
+        for ((_, v) in targetViews) v.visibility = View.INVISIBLE
     }
 
-    private fun playSavedChange() {
-        if (sequenceJob?.isActive == true) {
-            Toast.makeText(this, "Ginagawa pa ang sukli", Toast.LENGTH_SHORT).show()
-            return
-        }
-        val session = getSharedPreferences("fare_session", MODE_PRIVATE)
-
-        // MainActivity debounces recalculation while the user is still typing the
-        // payment amount. If a calculation is mid-flight, pending_sequence may still
-        // hold a stale value from a half-typed number (e.g. "5" before "50" finishes
-        // being entered) — refuse to play until it settles instead of tapping the
-        // wrong denominations.
-        if (session.getBoolean("calc_pending", false)) {
-            Toast.makeText(this, "Sandali, kinakalkula pa ang sukli...", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val saved = session.getString("pending_sequence", "") ?: ""
-        val sequence = saved.split(",").filter { it.isNotBlank() }
-        if (sequence.isEmpty()) {
-            Toast.makeText(this, "Pumili muna ng trip at i-save ang sukli", Toast.LENGTH_LONG).show()
-            return
-        }
-        val accessibilityService = AutoClickService.instance
-        if (accessibilityService == null) {
-            Toast.makeText(this, "Enable Accessibility muna", Toast.LENGTH_LONG).show()
-            return
-        }
-        sequenceJob = scope.launch {
-            try {
-                setPlaybackStatus("Plan: ${sequence.joinToString(" → ") { if (it == "CHECK") "check" else it }}")
-                delay(250L)
-                // Keep labels visible, but let Accessibility gestures pass through them.
-                setTargetsTouchThrough(true)
-                for (key in sequence) {
-                    val position = liveTargetCenter(key)
-                    if (position == null) {
-                        setPlaybackStatus("Missing $key")
-                        Toast.makeText(this@FloatingService, "Ibalik muna ang target: $key gamit ang +", Toast.LENGTH_LONG).show()
-                        break
-                    }
-                    val label = if (key == "CHECK") "check" else key
-                    setPlaybackStatus("Clicks $label\nx=${position.first.toInt()} y=${position.second.toInt()}")
-                    val dispatched = accessibilityService.tapAt(position.first, position.second) { completed ->
-                        setPlaybackStatus(
-                            if (completed) "Clicked $label\nx=${position.first.toInt()} y=${position.second.toInt()}"
-                            else "FAILED $label\nx=${position.first.toInt()} y=${position.second.toInt()}"
-                        )
-                    }
-                    if (!dispatched) {
-                        setPlaybackStatus("FAILED $label\ndispatch rejected")
-                        break
-                    }
-                    delay(if (key == "CHECK") 400L else 250L)
-                }
-                setPlaybackStatus("Done\nSequence complete")
-            } finally {
-                setTargetsTouchThrough(false)
-                sequenceJob = null
-            }
-        }
-    }
-
-    private fun stopPlayback() {
-        if (sequenceJob?.isActive == true) {
-            sequenceJob?.cancel()
-            setPlaybackStatus("Stopped")
-            Toast.makeText(this, "Auto sukli stopped", Toast.LENGTH_SHORT).show()
-        }
+    fun showAllTargets() {
+        if (!targetsHidden) return
+        targetsHidden = false
+        for ((_, v) in targetViews) v.visibility = View.VISIBLE
     }
 
     override fun onDestroy() {
-        stopPlayback()
-        scope.cancel()
         isRunning = false
         instance = null
-        controllerView?.let { if (it.isAttachedToWindow) windowManager.removeView(it) }
-        targetViews.values.forEach { if (it.isAttachedToWindow) windowManager.removeView(it) }
-        controllerView = null
+        for ((_, v) in targetViews) {
+            if (v.isAttachedToWindow) {
+                try { windowManager.removeView(v) } catch (_: Exception) {}
+            }
+        }
         targetViews.clear()
         targetParams.clear()
-        targetPositions.clear()
         super.onDestroy()
     }
 }
