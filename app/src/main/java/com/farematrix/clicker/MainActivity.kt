@@ -204,7 +204,13 @@ class MainActivity : AppCompatActivity() {
         } else {
             startService(intent)
         }
-        mainHandler.postDelayed({ updateStatus() }, 500)
+        // Push whatever trip details are already on screen to the new
+        // controller right away — the person shouldn't have to touch a
+        // field again just because the overlay only now started existing.
+        mainHandler.postDelayed({
+            updateStatus()
+            recalcAndSave(showToast = false)
+        }, 500)
     }
 
     // -----------------------------------------------------------------
