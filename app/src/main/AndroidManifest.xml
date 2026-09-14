@@ -5,6 +5,17 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Needed on Android 11+ so this app can look up and launch OTHER installed apps
+         (the "link a denomination target to an app" feature). Declaring visibility to
+         any app with a launcher entry is the standard, Play-Store-safe way to do this --
+         it avoids needing the more restricted QUERY_ALL_PACKAGES permission. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="true"
         android:label="Auto Sukli"
