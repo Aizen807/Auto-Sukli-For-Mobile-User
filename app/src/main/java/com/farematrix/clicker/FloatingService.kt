@@ -239,15 +239,41 @@ class FloatingService : Service() {
         return center
     }
 
+    /**
+     * Marking a window's *view* INVISIBLE does NOT make the window stop
+     * intercepting touches — the window itself is a separate surface from
+     * the app underneath, and Android routes touches (including our own
+     * synthetic ones) to whatever window occupies that screen region,
+     * regardless of the content view's visibility. Without this flag, a
+     * synthetic tap aimed at the game's ₱5 button actually lands on our own
+     * invisible circle instead and gets silently swallowed there — the
+     * gesture still "completes" from Android's point of view, which is why
+     * the status looked successful even though nothing happened in-game.
+     * FLAG_NOT_TOUCHABLE is what actually makes a window click-through.
+     */
+    private fun setTargetsClickThrough(enable: Boolean) {
+        for ((key, params) in targetParams) {
+            val view = targetViews[key] ?: continue
+            params.flags = if (enable) {
+                params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+            } else {
+                params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+            }
+            try { windowManager.updateViewLayout(view, params) } catch (_: Exception) {}
+        }
+    }
+
     fun hideAllTargets() {
         if (targetsHidden) return
         targetsHidden = true
         for ((_, v) in targetViews) v.visibility = View.INVISIBLE
+        setTargetsClickThrough(true)
     }
 
     fun showAllTargets() {
         if (!targetsHidden) return
         targetsHidden = false
+        setTargetsClickThrough(false)
         for ((_, v) in targetViews) v.visibility = View.VISIBLE
     }
 
