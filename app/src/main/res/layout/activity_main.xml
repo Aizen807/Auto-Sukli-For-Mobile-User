@@ -2,257 +2,723 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#10160D"
+    android:background="@color/forest"
+    android:clipToPadding="false"
     android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:paddingStart="18dp"
+        android:paddingTop="18dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="28dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Fare Matrix Auto Sukli"
-            android:textColor="#F3B22C"
-            android:textSize="25sp"
+            android:text="AUTO SUKLI  ·  FARE MATRIX"
+            android:textColor="@color/gold"
+            android:textSize="12sp"
             android:textStyle="bold"
+            android:letterSpacing="0.08"
             android:layout_marginBottom="6dp" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Piliin ang route, pickup, drop-off, pasahero, at bayad. Awtomatikong kakalkulahin ang fare at sukli."
-            android:textColor="#C9BE9E"
-            android:textSize="14sp"
-            android:layout_marginBottom="14dp" />
+            android:text="Fare &amp; sukli"
+            android:textColor="@color/cream"
+            android:textSize="30sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp" />
 
-        <!-- Status panel -->
         <TextView
-            android:id="@+id/statusText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Accessibility: ❌ OFF&#10;Overlay Service: ❌ OFF"
-            android:textColor="#F1E9D2"
+            android:text="Piliin ang biyahe, i-tap ang + para sa pasahero, at ilagay ang bayad."
+            android:textColor="@color/muted"
             android:textSize="14sp"
-            android:padding="12dp"
-            android:background="#1A2415"
-            android:layout_marginBottom="14dp" />
-
-        <Button
-            android:id="@+id/btnAccessibility"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="1. Enable Accessibility Service"
-            android:layout_marginBottom="8dp" />
-
-        <Button
-            android:id="@+id/btnOverlay"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="2. Show / Arrange Targets"
-            android:layout_marginBottom="8dp" />
-
-        <Button
-            android:id="@+id/btnController"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="3. Show Floating Controller"
+            android:lineSpacingExtra="2dp"
             android:layout_marginBottom="18dp" />
 
-        <!-- Trip details -->
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="TRIP DETAILS"
-            android:textColor="#F3B22C"
-            android:textStyle="bold"
-            android:textSize="16sp"
-            android:layout_marginBottom="6dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Route"
-            android:textColor="#F1E9D2" />
-
-        <Spinner
-            android:id="@+id/spRoute"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="#F1E9D2"
-            android:layout_marginBottom="10dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Pickup / Sakayan"
-            android:textColor="#F1E9D2" />
-
-        <Spinner
-            android:id="@+id/spPickup"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="#F1E9D2"
-            android:layout_marginBottom="10dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Drop-off / Babaan"
-            android:textColor="#F1E9D2" />
-
-        <Spinner
-            android:id="@+id/spDropoff"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="#F1E9D2"
-            android:layout_marginBottom="10dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Passenger counts"
-            android:textColor="#F1E9D2" />
-
-        <EditText
-            android:id="@+id/etRegularCount"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Regular passengers"
-            android:inputType="number"
-            android:textColor="#10160D"
-            android:textColorHint="#666666"
-            android:background="#F1E9D2"
-            android:padding="12dp"
-            android:text="1" />
-
-        <EditText
-            android:id="@+id/etStudentCount"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Student passengers"
-            android:inputType="number"
-            android:textColor="#10160D"
-            android:textColorHint="#666666"
-            android:background="#F1E9D2"
-            android:padding="12dp" />
-
-        <EditText
-            android:id="@+id/etSeniorCount"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Senior passengers"
-            android:inputType="number"
-            android:textColor="#10160D"
-            android:textColorHint="#666666"
-            android:background="#F1E9D2"
-            android:padding="12dp"
-            android:layout_marginBottom="10dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Payment amount / Binayad"
-            android:textColor="#F1E9D2" />
-
-        <EditText
-            android:id="@+id/etPayment"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Halimbawa: 50"
-            android:inputType="numberDecimal"
-            android:textColor="#10160D"
-            android:textColorHint="#666666"
-            android:background="#F1E9D2"
-            android:padding="12dp"
-            android:layout_marginBottom="14dp" />
-
-        <!-- Results -->
-        <TextView
-            android:id="@+id/tvFareResult"
-            android:accessibilityLiveRegion="polite"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Fare: ₱0"
-            android:textColor="#F3B22C"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:background="#1A2415"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
             android:padding="14dp"
-            android:layout_marginBottom="6dp" />
+            android:layout_marginBottom="12dp">
 
-        <TextView
-            android:id="@+id/tvBreakdown"
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="ROUTE"
+                android:textColor="@color/muted"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="10dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="3">
+
+                <Button
+                    android:id="@+id/btnRouteBalagtas"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_route_tab"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minHeight="48dp"
+                    android:minWidth="0dp"
+                    android:text="Balagtas"
+                    android:textAllCaps="false"
+                    android:textColor="@color/cream"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btnRouteGuiguinto"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/bg_route_tab"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minHeight="48dp"
+                    android:minWidth="0dp"
+                    android:text="Guiguinto"
+                    android:textAllCaps="false"
+                    android:textColor="@color/cream"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btnRouteMalolos"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/bg_route_tab"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minHeight="48dp"
+                    android:minWidth="0dp"
+                    android:text="Malolos"
+                    android:textAllCaps="false"
+                    android:textColor="@color/cream"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Pumili ng trip details."
-            android:textColor="#F1E9D2"
-            android:textSize="14sp"
-            android:padding="10dp"
-            android:background="#212D1A"
-            android:layout_marginBottom="6dp" />
-
-        <TextView
-            android:id="@+id/tvChangeResult"
-            android:accessibilityLiveRegion="polite"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Sukli: ₱0"
-            android:textColor="#6FA05B"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:background="#1A2415"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
             android:padding="14dp"
-            android:layout_marginBottom="12dp" />
+            android:layout_marginBottom="12dp">
 
-        <!-- Auto-click order preview -->
-        <TextView
-            android:id="@+id/tvAutoSequence"
-            android:accessibilityLiveRegion="polite"
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="SAKAYAN AT BABABAAN"
+                android:textColor="@color/muted"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="8dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Pickup / Sakayan"
+                        android:textColor="@color/cream"
+                        android:textSize="12sp"
+                        android:layout_marginBottom="5dp" />
+
+                    <Spinner
+                        android:id="@+id/spPickup"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="@drawable/bg_input"
+                        android:contentDescription="Pickup barangay"
+                        android:dropDownWidth="wrap_content"
+                        android:spinnerMode="dropdown" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnSwap"
+                    android:layout_width="42dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="5dp"
+                    android:layout_marginTop="18dp"
+                    android:layout_marginEnd="5dp"
+                    android:background="@drawable/bg_stepper_button"
+                    android:contentDescription="Swap pickup and drop-off"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="42dp"
+                    android:minHeight="48dp"
+                    android:padding="0dp"
+                    android:text="⇄"
+                    android:textAllCaps="false"
+                    android:textColor="@color/gold"
+                    android:textSize="20sp" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Drop-off / Babaan"
+                        android:textColor="@color/cream"
+                        android:textSize="12sp"
+                        android:layout_marginBottom="5dp" />
+
+                    <Spinner
+                        android:id="@+id/spDropoff"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:background="@drawable/bg_input"
+                        android:contentDescription="Drop-off barangay"
+                        android:dropDownWidth="wrap_content"
+                        android:spinnerMode="dropdown" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Auto-click order: —"
-            android:textColor="#F1E9D2"
-            android:textSize="15sp"
-            android:background="#212D1A"
-            android:padding="12dp"
-            android:layout_marginBottom="12dp" />
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:paddingStart="14dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="8dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="PASAHERO"
+                android:textColor="@color/muted"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:layout_marginTop="6dp"
+                android:layout_marginBottom="2dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Regular"
+                        android:textColor="@color/cream"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="₱14 base fare"
+                        android:textColor="@color/muted"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnRegularMinus"
+                    android:layout_width="44dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/bg_stepper_button"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="44dp"
+                    android:minHeight="48dp"
+                    android:padding="0dp"
+                    android:text="−"
+                    android:textAllCaps="false"
+                    android:textColor="@color/cream"
+                    android:textSize="22sp" />
+                <TextView
+                    android:id="@+id/tvRegularCount"
+                    android:layout_width="42dp"
+                    android:layout_height="48dp"
+                    android:gravity="center"
+                    android:text="1"
+                    android:textColor="@color/cream"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:accessibilityLiveRegion="polite" />
+                <Button
+                    android:id="@+id/btnRegularPlus"
+                    android:layout_width="44dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="4dp"
+                    android:background="@drawable/bg_stepper_button"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="44dp"
+                    android:minHeight="48dp"
+                    android:padding="0dp"
+                    android:text="+"
+                    android:textAllCaps="false"
+                    android:textColor="@color/gold"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/divider" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Student"
+                        android:textColor="@color/cream"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="₱12 base fare"
+                        android:textColor="@color/muted"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnStudentMinus"
+                    android:layout_width="44dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/bg_stepper_button"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="44dp"
+                    android:minHeight="48dp"
+                    android:padding="0dp"
+                    android:text="−"
+                    android:textAllCaps="false"
+                    android:textColor="@color/cream"
+                    android:textSize="22sp" />
+                <TextView
+                    android:id="@+id/tvStudentCount"
+                    android:layout_width="42dp"
+                    android:layout_height="48dp"
+                    android:gravity="center"
+                    android:text="0"
+                    android:textColor="@color/cream"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:accessibilityLiveRegion="polite" />
+                <Button
+                    android:id="@+id/btnStudentPlus"
+                    android:layout_width="44dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="4dp"
+                    android:background="@drawable/bg_stepper_button"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="44dp"
+                    android:minHeight="48dp"
+                    android:padding="0dp"
+                    android:text="+"
+                    android:textAllCaps="false"
+                    android:textColor="@color/gold"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/divider" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Senior"
+                        android:textColor="@color/cream"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="₱12 base fare"
+                        android:textColor="@color/muted"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnSeniorMinus"
+                    android:layout_width="44dp"
+                    android:layout_height="48dp"
+                    android:background="@drawable/bg_stepper_button"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="44dp"
+                    android:minHeight="48dp"
+                    android:padding="0dp"
+                    android:text="−"
+                    android:textAllCaps="false"
+                    android:textColor="@color/cream"
+                    android:textSize="22sp" />
+                <TextView
+                    android:id="@+id/tvSeniorCount"
+                    android:layout_width="42dp"
+                    android:layout_height="48dp"
+                    android:gravity="center"
+                    android:text="0"
+                    android:textColor="@color/cream"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:accessibilityLiveRegion="polite" />
+                <Button
+                    android:id="@+id/btnSeniorPlus"
+                    android:layout_width="44dp"
+                    android:layout_height="48dp"
+                    android:layout_marginStart="4dp"
+                    android:background="@drawable/bg_stepper_button"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="44dp"
+                    android:minHeight="48dp"
+                    android:padding="0dp"
+                    android:text="+"
+                    android:textAllCaps="false"
+                    android:textColor="@color/gold"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_fare_card"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="TOTAL FARE"
+                android:textColor="@color/muted"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08" />
+
+            <TextView
+                android:id="@+id/tvFareResult"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:accessibilityLiveRegion="polite"
+                android:text="₱14"
+                android:textColor="@color/gold"
+                android:textSize="34sp"
+                android:textStyle="bold"
+                android:layout_marginTop="2dp"
+                android:layout_marginBottom="6dp" />
+
+            <TextView
+                android:id="@+id/tvBreakdown"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Minimum 4 units"
+                android:textColor="@color/cream"
+                android:textSize="12sp"
+                android:lineSpacingExtra="2dp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="14dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="SUKLI CALCULATOR"
+                android:textColor="@color/muted"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Binayad (₱)"
+                android:textColor="@color/cream"
+                android:textSize="13sp"
+                android:layout_marginBottom="5dp" />
+
+            <EditText
+                android:id="@+id/etPayment"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:background="@drawable/bg_input"
+                android:hint="Halimbawa: 50"
+                android:inputType="numberDecimal"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:textColor="@color/cream"
+                android:textColorHint="@color/muted"
+                android:textSize="18sp"
+                android:selectAllOnFocus="true"
+                android:layout_marginBottom="8dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="3"
+                android:layout_marginBottom="12dp">
+
+                <Button
+                    android:id="@+id/btnPay20"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_quick_amount"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minHeight="44dp"
+                    android:minWidth="0dp"
+                    android:text="₱20"
+                    android:textAllCaps="false"
+                    android:textColor="@color/cream"
+                    android:textStyle="bold" />
+                <Button
+                    android:id="@+id/btnPay50"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_quick_amount"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minHeight="44dp"
+                    android:minWidth="0dp"
+                    android:text="₱50"
+                    android:textAllCaps="false"
+                    android:textColor="@color/cream"
+                    android:textStyle="bold" />
+                <Button
+                    android:id="@+id/btnPay100"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_quick_amount"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minHeight="44dp"
+                    android:minWidth="0dp"
+                    android:text="₱100"
+                    android:textAllCaps="false"
+                    android:textColor="@color/cream"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/divider"
+                android:layout_marginBottom="10dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Sukli"
+                    android:textColor="@color/cream"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+                <TextView
+                    android:id="@+id/tvChangeResult"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:accessibilityLiveRegion="polite"
+                    android:text="—"
+                    android:textColor="@color/gold"
+                    android:textSize="26sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Auto-click order"
+                android:textColor="@color/muted"
+                android:textSize="12sp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="4dp" />
+            <TextView
+                android:id="@+id/tvAutoSequence"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:accessibilityLiveRegion="polite"
+                android:background="@drawable/bg_sequence"
+                android:padding="10dp"
+                android:text="Ilagay ang binayad para makita ang sukli."
+                android:textColor="@color/cream"
+                android:textSize="13sp" />
+        </LinearLayout>
 
         <Button
             android:id="@+id/btnCalculateAndGive"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="UPDATE / SAVE SUKLI NOW"
-            android:backgroundTint="#F3B22C"
-            android:textColor="#1A2415"
+            android:layout_height="54dp"
+            android:background="@drawable/bg_primary_button"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minHeight="54dp"
+            android:text="I-save ang sukli sequence"
+            android:textAllCaps="false"
+            android:textColor="@color/ink"
+            android:textSize="15sp"
             android:textStyle="bold"
-            android:padding="16dp"
             android:layout_marginBottom="8dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Auto-update is active: route, pickup, drop-off, passenger counts, and payment automatically update the blue ▶ Play sequence."
-            android:textColor="#C9BE9E"
-            android:textSize="12sp"
-            android:paddingBottom="8dp" />
 
         <Button
             android:id="@+id/btnReset"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Reset trip"
-            android:layout_marginBottom="8dp" />
+            android:layout_height="48dp"
+            android:background="@drawable/bg_stepper_button"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minHeight="48dp"
+            android:text="I-reset ang trip"
+            android:textAllCaps="false"
+            android:textColor="@color/cream"
+            android:layout_marginBottom="20dp" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Fare rules: minimum 4 units • Regular ₱14 • Student/Senior ₱12 • +₱2 bawat unit lampas sa minimum"
-            android:textColor="#C9BE9E"
+            android:text="AUTO-CLICK SETUP"
+            android:textColor="@color/gold"
             android:textSize="12sp"
-            android:paddingTop="8dp" />
+            android:textStyle="bold"
+            android:letterSpacing="0.08"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_card"
+            android:padding="12dp"
+            android:text="Accessibility: ❌ OFF&#10;Overlay Service: ❌ OFF"
+            android:textColor="@color/cream"
+            android:textSize="13sp"
+            android:lineSpacingExtra="2dp"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btnAccessibility"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_stepper_button"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minHeight="48dp"
+            android:text="Enable Accessibility Service"
+            android:textAllCaps="false"
+            android:textColor="@color/cream"
+            android:layout_marginBottom="6dp" />
+
+        <Button
+            android:id="@+id/btnOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_stepper_button"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minHeight="48dp"
+            android:text="Show / arrange change targets"
+            android:textAllCaps="false"
+            android:textColor="@color/cream"
+            android:layout_marginBottom="6dp" />
+
+        <Button
+            android:id="@+id/btnController"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_stepper_button"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minHeight="48dp"
+            android:text="Show floating controller"
+            android:textAllCaps="false"
+            android:textColor="@color/cream" />
 
     </LinearLayout>
 </ScrollView>

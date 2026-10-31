@@ -40,9 +40,9 @@ On Windows, run `gradlew.bat testDebugUnitTest assembleDebug`. The debug APK is 
 4. On Android 13+, allow notifications so the persistent service notification and its **Stop overlays** action can be shown.
 5. Move the ₱50, ₱20, ₱10, ₱5, ₱1, and check targets to the matching positions in the cashier/payment screen.
 6. Choose the route, pickup, and drop-off.
-7. Enter non-negative whole-number counts for Regular, Student, and Senior passengers. You can combine passenger types, such as 1 regular + 1 student.
-8. Enter the payment amount, using at most two decimal places.
-9. Review the fare, exact change, and click order. The latest result is saved as trip details change; you can also tap **UPDATE / SAVE SUKLI NOW**.
+7. Tap **+** or **−** for Regular, Student, and Senior passenger counts. You can combine passenger types, such as 1 regular + 1 student.
+8. Enter the payment amount (at most two decimal places) or tap a quick preset such as ₱20, ₱50, or ₱100.
+9. Review the fare, exact change, and click order. The latest result is saved as trip details change; tap **I-save ang sukli sequence** to refresh it on the floating controller.
 10. Open the intended cashier/payment screen, confirm the target positions and move the controller away from all target buttons, then tap the blue **▶ Play** button.
 11. A three-second countdown gives you time to confirm the screen and cancel with the red **Stop** button. Playback refuses to start if a required denomination target is missing or under the controller.
 12. If a denomination target was closed, tap the green **+** button to restore it. Use **Hide** to hide the controller, or **Exit** / the notification’s **Stop overlays** action to stop the service and remove all overlays.

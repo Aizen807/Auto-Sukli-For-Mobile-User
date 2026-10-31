@@ -8,7 +8,7 @@
     <application
         android:allowBackup="false"
         android:label="Auto Sukli"
-        android:theme="@style/Theme.AppCompat.DayNight"
+        android:theme="@style/Theme.AutoSukli"
         android:icon="@android:drawable/ic_menu_mylocation">
 
         <activity android:name=".MainActivity" android:exported="true">
