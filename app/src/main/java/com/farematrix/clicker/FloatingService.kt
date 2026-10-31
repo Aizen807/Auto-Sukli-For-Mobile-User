@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.PixelFormat
+import android.graphics.Point
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -161,8 +162,9 @@ class FloatingService : Service() {
         val rawX = prefs.getFloat("x_$key", defaults[key]!!.first)
         val rawY = prefs.getFloat("y_$key", defaults[key]!!.second)
         val fallbackSize = (88f * resources.displayMetrics.density).toInt()
-        val maxX = (resources.displayMetrics.widthPixels - fallbackSize).coerceAtLeast(0)
-        val maxY = (resources.displayMetrics.heightPixels - fallbackSize).coerceAtLeast(0)
+        val displaySize = displaySizePx()
+        val maxX = (displaySize.x - fallbackSize).coerceAtLeast(0)
+        val maxY = (displaySize.y - fallbackSize).coerceAtLeast(0)
         val savedX = (if (rawX < 0f) defaults[key]!!.first else rawX).coerceIn(0f, maxX.toFloat())
         val savedY = (if (rawY < 0f) defaults[key]!!.second else rawY).coerceIn(0f, maxY.toFloat())
 
@@ -281,13 +283,23 @@ class FloatingService : Service() {
         targetPositions[key] = Pair(safe.first + w / 2f, safe.second + h / 2f)
     }
 
+    /**
+     * Overlay LayoutParams use display coordinates. Resource metrics can describe
+     * only this app's split-screen pane, which incorrectly traps overlays at its edge.
+     */
+    @Suppress("DEPRECATION")
+    private fun displaySizePx(): Point {
+        val size = Point()
+        windowManager.defaultDisplay.getRealSize(size)
+        return size
+    }
+
     private fun clampTargetPosition(x: Int, y: Int, view: View): Pair<Int, Int> {
         val fallbackSize = (88f * resources.displayMetrics.density).toInt()
         val width = view.width.takeIf { it > 0 } ?: fallbackSize
         val height = view.height.takeIf { it > 0 } ?: fallbackSize
-        val maxX = (resources.displayMetrics.widthPixels - width).coerceAtLeast(0)
-        val maxY = (resources.displayMetrics.heightPixels - height).coerceAtLeast(0)
-        return x.coerceIn(0, maxX) to y.coerceIn(0, maxY)
+        val displaySize = displaySizePx()
+        return OverlayGeometry.clampPosition(x, y, width, height, displaySize.x, displaySize.y)
     }
 
     fun getTargetCenter(key: String): Pair<Float, Float>? {
@@ -389,8 +401,9 @@ class FloatingService : Service() {
         val hideBtn = view.findViewById<Button>(R.id.controllerHide)
         val exitBtn = view.findViewById<Button>(R.id.controllerExit)
 
-        val screenWidth = resources.displayMetrics.widthPixels
-        val screenHeight = resources.displayMetrics.heightPixels
+        val displaySize = displaySizePx()
+        val screenWidth = displaySize.x
+        val screenHeight = displaySize.y
         view.measure(
             View.MeasureSpec.makeMeasureSpec(screenWidth, View.MeasureSpec.AT_MOST),
             View.MeasureSpec.makeMeasureSpec(screenHeight, View.MeasureSpec.AT_MOST)
@@ -417,10 +430,17 @@ class FloatingService : Service() {
                         return true
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        params.x = (startX + (event.rawX - touchX).toInt())
-                            .coerceIn(0, (resources.displayMetrics.widthPixels - view.width).coerceAtLeast(0))
-                        params.y = (startY + (event.rawY - touchY).toInt())
-                            .coerceIn(0, (resources.displayMetrics.heightPixels - view.height).coerceAtLeast(0))
+                        val currentDisplaySize = displaySizePx()
+                        val safe = OverlayGeometry.clampPosition(
+                            startX + (event.rawX - touchX).toInt(),
+                            startY + (event.rawY - touchY).toInt(),
+                            view.width,
+                            view.height,
+                            currentDisplaySize.x,
+                            currentDisplaySize.y
+                        )
+                        params.x = safe.first
+                        params.y = safe.second
                         windowManager.updateViewLayout(view, params)
                         prefs.edit {
                             putFloat("controller_x", params.x.toFloat())
