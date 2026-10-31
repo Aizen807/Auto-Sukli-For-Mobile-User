@@ -61,6 +61,7 @@ class FloatingService : Service() {
 
     companion object {
         const val ACTION_STOP_SERVICE = "com.farematrix.clicker.action.STOP_FLOATING_SERVICE"
+        private const val CLICK_THROUGH_SETTLE_MS = 250L
 
         @Volatile
         var isRunning = false
@@ -313,7 +314,8 @@ class FloatingService : Service() {
      * the status looked successful even though nothing happened in-game.
      * FLAG_NOT_TOUCHABLE is what actually makes a window click-through.
      */
-    private fun setTargetsClickThrough(enable: Boolean) {
+    private fun setTargetsClickThrough(enable: Boolean): Boolean {
+        var allUpdated = true
         for ((key, params) in targetParams) {
             val view = targetViews[key] ?: continue
             params.flags = if (enable) {
@@ -321,15 +323,27 @@ class FloatingService : Service() {
             } else {
                 params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
             }
-            try { windowManager.updateViewLayout(view, params) } catch (_: Exception) {}
+            try {
+                windowManager.updateViewLayout(view, params)
+            } catch (_: Exception) {
+                allUpdated = false
+            }
         }
+        return allUpdated
     }
 
-    fun hideAllTargets() {
-        if (targetsHidden) return
-        targetsHidden = true
+    fun hideAllTargets(): Boolean {
+        if (targetsHidden) return true
         for ((_, v) in targetViews) v.visibility = View.INVISIBLE
-        setTargetsClickThrough(true)
+        if (!setTargetsClickThrough(true)) {
+            // Don't continue with a partially hidden set of windows: a target
+            // whose touch flag did not update could swallow its own synthetic tap.
+            for ((_, v) in targetViews) v.visibility = View.VISIBLE
+            setTargetsClickThrough(false)
+            return false
+        }
+        targetsHidden = true
+        return true
     }
 
     fun showAllTargets() {
@@ -507,8 +521,16 @@ class FloatingService : Service() {
                 }
                 countdownRunnable = null
                 controllerStatus.text = "▶ Running..."
-                hideAllTargets()
-                tapStep(svc, sequence, 0)
+                if (!hideAllTargets()) {
+                    failPlayback("Hindi maitago nang ligtas ang targets; walang na-click.")
+                    return
+                }
+                // WindowManager applies overlay input-region changes on a
+                // later frame. Let the click-through flags settle before
+                // sending the first accessibility gesture.
+                mainHandler.postDelayed({
+                    tapStep(svc, sequence, 0)
+                }, CLICK_THROUGH_SETTLE_MS)
             }
         }
         countdownRunnable = countdown

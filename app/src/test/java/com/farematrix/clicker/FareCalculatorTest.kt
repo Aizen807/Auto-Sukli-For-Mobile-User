@@ -83,4 +83,9 @@ class FareCalculatorTest {
         assertNull(denominationPlan(-100L))
         assertTrue(denominationPlan(0L).isNullOrEmpty())
     }
+
+    @Test
+    fun plansTheReportedSixtyEightPesoChangeInDescendingOrder() {
+        assertEquals(listOf(50, 10, 5, 1, 1, 1), denominationPlan(6_800L))
+    }
 }
