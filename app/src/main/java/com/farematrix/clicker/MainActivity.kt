@@ -1,6 +1,8 @@
 package com.farematrix.clicker
 
 import android.content.Intent
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -17,14 +19,10 @@ import android.widget.EditText
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import kotlin.math.abs
-import kotlin.math.max
+import androidx.core.content.ContextCompat
 
-// ---------------------------------------------------------------------
-// Fare Matrix data — ported from the Fare Matrix PWA (dns-fare-guide1)
-// so both apps compute the exact same fare for the exact same trip.
-// ---------------------------------------------------------------------
 private data class RouteDef(val label: String, val units: List<List<String>>)
 
 private val ROUTES = linkedMapOf(
@@ -60,28 +58,6 @@ private val ROUTES = linkedMapOf(
     )
 )
 
-private const val MINIMUM_UNITS = 4
-private const val BASE_REGULAR_FARE = 13
-private const val BASE_REDUCED_FARE = 11
-private const val EXTRA_FARE_PER_UNIT = 2
-
-private data class FareResult(
-    val unitsCount: Int,
-    val extra: Int,
-    val regularFare: Int,
-    val reducedFare: Int,
-    val total: Int
-)
-
-private fun calculateFare(fromIdx: Int, toIdx: Int, regular: Int, student: Int, senior: Int): FareResult {
-    val unitsCount = abs(fromIdx - toIdx) + 1
-    val extra = max(0, unitsCount - MINIMUM_UNITS)
-    val regularFare = BASE_REGULAR_FARE + extra * EXTRA_FARE_PER_UNIT
-    val reducedFare = BASE_REDUCED_FARE + extra * EXTRA_FARE_PER_UNIT
-    val total = regular * regularFare + (student + senior) * reducedFare
-    return FareResult(unitsCount, extra, regularFare, reducedFare, total)
-}
-
 class MainActivity : AppCompatActivity() {
 
     private lateinit var statusText: TextView
@@ -101,6 +77,18 @@ class MainActivity : AppCompatActivity() {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val routeKeys = ROUTES.keys.toList()
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                startFloatingServiceNow()
+            } else {
+                Toast.makeText(
+                    this,
+                    "I-enable ang notifications para makita at mapatigil ang overlay service.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
 
     // Flat (barangay name, unit index) list for the currently selected route
     private var currentBarangays: List<Pair<String, Int>> = emptyList()
@@ -198,6 +186,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startFloatingService() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        startFloatingServiceNow()
+    }
+
+    private fun startFloatingServiceNow() {
         val intent = Intent(this, FloatingService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent)
@@ -274,8 +273,12 @@ class MainActivity : AppCompatActivity() {
         etPayment.addTextChangedListener(watcher)
     }
 
-    private fun intFromField(field: EditText): Int =
-        field.text.toString().trim().toIntOrNull() ?: 0
+    private fun longFromPassengerField(field: EditText): Long? {
+        val text = field.text.toString().trim()
+        if (text.isEmpty()) return 0L
+        val count = text.toLongOrNull() ?: return null
+        return count.takeIf { it >= 0L }
+    }
 
     /**
      * Recomputes fare + change from the current trip details, updates the
@@ -289,12 +292,21 @@ class MainActivity : AppCompatActivity() {
         val fromIdx = currentBarangays.getOrNull(spPickup.selectedItemPosition)?.second ?: return
         val toIdx = currentBarangays.getOrNull(spDropoff.selectedItemPosition)?.second ?: return
 
-        val regular = intFromField(etRegularCount)
-        val student = intFromField(etStudentCount)
-        val senior = intFromField(etSeniorCount)
-        val totalPax = regular + student + senior
+        val regular = longFromPassengerField(etRegularCount)
+        val student = longFromPassengerField(etStudentCount)
+        val senior = longFromPassengerField(etSeniorCount)
+        if (regular == null || student == null || senior == null) {
+            showInvalidCalculation("Gumamit ng non-negative whole number para sa bilang ng pasahero.")
+            return
+        }
 
-        if (totalPax <= 0) {
+        val totalPax = try {
+            Math.addExact(Math.addExact(regular, student), senior)
+        } catch (_: ArithmeticException) {
+            showInvalidCalculation("Sobra ang bilang ng pasahero.")
+            return
+        }
+        if (totalPax <= 0L) {
             tvFareResult.text = "Fare: ₱0"
             tvBreakdown.text = "Maglagay ng hindi bababa sa 1 pasahero."
             tvChangeResult.text = "Sukli: ₱0"
@@ -303,7 +315,12 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        val result = calculateFare(fromIdx, toIdx, regular, student, senior)
+        val result = try {
+            calculateFare(fromIdx, toIdx, regular, student, senior)
+        } catch (_: ArithmeticException) {
+            showInvalidCalculation("Sobra ang bilang ng pasahero.")
+            return
+        }
         tvFareResult.text = "Fare: ₱${result.total}"
 
         val unitNote = if (result.unitsCount <= MINIMUM_UNITS)
@@ -313,16 +330,29 @@ class MainActivity : AppCompatActivity() {
         tvBreakdown.text = "Regular ₱${result.regularFare} • Student/Senior ₱${result.reducedFare} • $unitNote"
 
         val paymentText = etPayment.text.toString().trim()
-        val payment = paymentText.toDoubleOrNull()
-
-        if (payment == null) {
-            tvChangeResult.text = "Sukli: ₱0"
+        if (paymentText.isEmpty()) {
+            tvChangeResult.text = "Ilagay ang bayad"
             tvAutoSequence.text = "Auto-click order: —"
-            FloatingService.instance?.updateSavedSequence(emptyList(), "Ready")
+            FloatingService.instance?.updateSavedSequence(emptyList(), "Ilagay ang bayad")
             return
         }
 
-        if (payment < result.total) {
+        val paymentCents = parsePaymentCents(paymentText)
+        if (paymentCents == null) {
+            tvChangeResult.text = "Invalid na halaga ng bayad"
+            tvAutoSequence.text = "Auto-click order: —"
+            FloatingService.instance?.updateSavedSequence(emptyList(), "Invalid na bayad")
+            if (showToast) Toast.makeText(this, "Hanggang dalawang decimal place lang ang bayad.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val totalCents = try {
+            Math.multiplyExact(result.total, 100L)
+        } catch (_: ArithmeticException) {
+            showInvalidCalculation("Sobra ang halaga ng pamasahe.")
+            return
+        }
+        if (paymentCents < totalCents) {
             tvChangeResult.text = "Kulang ang bayad"
             tvAutoSequence.text = "Auto-click order: —"
             FloatingService.instance?.updateSavedSequence(emptyList(), "Kulang ang bayad")
@@ -330,27 +360,24 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        val change = Math.round(payment - result.total).toInt()
-        tvChangeResult.text = "Sukli: ₱$change"
+        val changeCents = paymentCents - totalCents
+        tvChangeResult.text = "Sukli: ₱${formatPesoCents(changeCents)}"
 
-        // Greedy coin change — highest to lowest, matching the physical targets.
-        val coins = listOf(50, 20, 10, 5, 1)
-        val plan = mutableListOf<Int>()
-        var remaining = change
-        for (c in coins) {
-            while (remaining >= c) {
-                plan.add(c)
-                remaining -= c
-            }
+        val plan = denominationPlan(changeCents)
+        if (plan == null) {
+            tvAutoSequence.text = "Auto-click unavailable: centavo o sobrang daming taps. Manu-manong ibigay ang eksaktong sukli."
+            FloatingService.instance?.updateSavedSequence(emptyList(), "Manu-manong sukli")
+            if (showToast) Toast.makeText(this, "Ibigay nang manu-mano ang eksaktong sukli; hindi ito mare-represent ng kasalukuyang targets.", Toast.LENGTH_LONG).show()
+            return
         }
-        val sequence = plan.map { it.toString() } + "CHECK"
 
+        val sequence = plan.map { it.toString() } + "CHECK"
         tvAutoSequence.text = if (plan.isEmpty())
             "Auto-click order: ✓ lang (exact payment)"
         else
             "Auto-click order: ${plan.joinToString(" + ")} → ✓"
 
-        val statusLabel = "₱$change → ${plan.joinToString(" + ").ifEmpty { "0" }} → ✓"
+        val statusLabel = "₱${formatPesoCents(changeCents)} → ${plan.joinToString(" + ").ifEmpty { "0" }} → ✓"
         FloatingService.instance?.updateSavedSequence(sequence, statusLabel)
 
         if (showToast) {
@@ -360,6 +387,14 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Na-save ang sukli sequence", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    private fun showInvalidCalculation(message: String) {
+        tvFareResult.text = "Fare: —"
+        tvBreakdown.text = message
+        tvChangeResult.text = "Sukli: —"
+        tvAutoSequence.text = "Auto-click order: —"
+        FloatingService.instance?.updateSavedSequence(emptyList(), "Invalid na detalye")
     }
 
     private fun resetTrip() {

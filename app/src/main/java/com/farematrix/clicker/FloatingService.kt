@@ -3,6 +3,7 @@ package com.farematrix.clicker
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.SharedPreferences
@@ -52,10 +53,15 @@ class FloatingService : Service() {
 
     // The auto-sukli sequence most recently saved by MainActivity, e.g. ["20","10","CHECK"]
     private var savedSequence: List<String> = emptyList()
+    private var savedStatusLabel = "Ready"
     private var isPlaying = false
     private var stopRequested = false
+    private var stopServiceAfterPlayback = false
+    private var countdownRunnable: Runnable? = null
 
     companion object {
+        const val ACTION_STOP_SERVICE = "com.farematrix.clicker.action.STOP_FLOATING_SERVICE"
+
         @Volatile
         var isRunning = false
             private set
@@ -72,6 +78,9 @@ class FloatingService : Service() {
         isRunning = true
         instance = this
         prefs = getSharedPreferences("target_positions", MODE_PRIVATE)
+        savedSequence = prefs.getString("saved_sequence", "").orEmpty()
+            .split(',').filter { it in allKeys }
+        savedStatusLabel = prefs.getString("saved_status", "Ready") ?: "Ready"
         startForeground(1, buildNotification())
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         setupTargets()
@@ -89,12 +98,28 @@ class FloatingService : Service() {
             (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
                 .createNotificationChannel(ch)
         }
+        val stopIntent = Intent(this, FloatingService::class.java).setAction(ACTION_STOP_SERVICE)
+        val pendingIntentFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        val stopPendingIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            PendingIntent.getForegroundService(this, 1001, stopIntent, pendingIntentFlags)
+        } else {
+            PendingIntent.getService(this, 1001, stopIntent, pendingIntentFlags)
+        }
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("Auto Sukli is active")
             .setContentText("Targets are showing on screen")
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setOngoing(true)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop overlays", stopPendingIntent)
             .build()
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP_SERVICE) {
+            requestServiceStop()
+            return START_NOT_STICKY
+        }
+        return START_STICKY
     }
 
     private fun overlayType() =
@@ -134,15 +159,18 @@ class FloatingService : Service() {
         // resurrecting an off-screen coordinate.
         val rawX = prefs.getFloat("x_$key", defaults[key]!!.first)
         val rawY = prefs.getFloat("y_$key", defaults[key]!!.second)
-        val savedX = if (rawX < 0f) defaults[key]!!.first else rawX
-        val savedY = if (rawY < 0f) defaults[key]!!.second else rawY
+        val fallbackSize = (88f * resources.displayMetrics.density).toInt()
+        val maxX = (resources.displayMetrics.widthPixels - fallbackSize).coerceAtLeast(0)
+        val maxY = (resources.displayMetrics.heightPixels - fallbackSize).coerceAtLeast(0)
+        val savedX = (if (rawX < 0f) defaults[key]!!.first else rawX).coerceIn(0f, maxX.toFloat())
+        val savedY = (if (rawY < 0f) defaults[key]!!.second else rawY).coerceIn(0f, maxY.toFloat())
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             overlayType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -156,6 +184,7 @@ class FloatingService : Service() {
         label.text = if (key == "CHECK") "✓" else key
 
         val circle = view.findViewById<View>(R.id.circleBody)
+        circle.contentDescription = if (key == "CHECK") "Check target" else "₱$key target"
         if (key == "CHECK") {
             circle.setBackgroundResource(R.drawable.target_bg_check)
         }
@@ -169,7 +198,7 @@ class FloatingService : Service() {
             private var dragging = false
 
             override fun onTouch(v: View, event: MotionEvent): Boolean {
-                if (locked) return true
+                if (locked || isPlaying) return true
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
                         startX = params.x
@@ -186,8 +215,9 @@ class FloatingService : Service() {
                             dragging = true
                         }
                         if (dragging) {
-                            params.x = startX + dx.toInt()
-                            params.y = startY + dy.toInt()
+                            val safe = clampTargetPosition(startX + dx.toInt(), startY + dy.toInt(), view)
+                            params.x = safe.first
+                            params.y = safe.second
                             windowManager.updateViewLayout(view, params)
                             savePosition(key, params.x, params.y, view)
                         }
@@ -210,13 +240,16 @@ class FloatingService : Service() {
         // closed; restoreAllTargets() / addOrRecreateTarget() clears that flag
         // and reuses the real saved position, so Restore brings it back exactly
         // where it was left, not off-screen.
-        view.findViewById<View>(R.id.closeBtn).setOnClickListener {
-            if (locked) return@setOnClickListener
+        view.findViewById<View>(R.id.closeBtn).apply {
+            contentDescription = if (key == "CHECK") "Close check target" else "Close ₱$key target"
+            setOnClickListener {
+            if (locked || isPlaying) return@setOnClickListener
             windowManager.removeView(view)
             targetViews.remove(key)
             targetParams.remove(key)
             targetPositions.remove(key)
             prefs.edit { putBoolean("closed_$key", true) }
+            }
         }
 
         windowManager.addView(view, params)
@@ -224,25 +257,45 @@ class FloatingService : Service() {
         targetParams[key] = params
 
         // Once the view is laid out, compute the true center.
-        view.post { savePosition(key, params.x, params.y, view) }
+        view.post {
+            val safe = clampTargetPosition(params.x, params.y, view)
+            if (safe.first != params.x || safe.second != params.y) {
+                params.x = safe.first
+                params.y = safe.second
+                windowManager.updateViewLayout(view, params)
+            }
+            savePosition(key, params.x, params.y, view)
+        }
     }
 
     private fun savePosition(key: String, x: Int, y: Int, view: View) {
+        val safe = clampTargetPosition(x, y, view)
         prefs.edit {
-            putFloat("x_$key", x.toFloat())
-            putFloat("y_$key", y.toFloat())
+            putFloat("x_$key", safe.first.toFloat())
+            putFloat("y_$key", safe.second.toFloat())
         }
-        val w = if (view.width > 0) view.width else 88
-        val h = if (view.height > 0) view.height else 88
-        targetPositions[key] = Pair(x + w / 2f, y + h / 2f)
+        val fallbackSize = (88f * resources.displayMetrics.density).toInt()
+        val w = view.width.takeIf { it > 0 } ?: fallbackSize
+        val h = view.height.takeIf { it > 0 } ?: fallbackSize
+        targetPositions[key] = Pair(safe.first + w / 2f, safe.second + h / 2f)
+    }
+
+    private fun clampTargetPosition(x: Int, y: Int, view: View): Pair<Int, Int> {
+        val fallbackSize = (88f * resources.displayMetrics.density).toInt()
+        val width = view.width.takeIf { it > 0 } ?: fallbackSize
+        val height = view.height.takeIf { it > 0 } ?: fallbackSize
+        val maxX = (resources.displayMetrics.widthPixels - width).coerceAtLeast(0)
+        val maxY = (resources.displayMetrics.heightPixels - height).coerceAtLeast(0)
+        return x.coerceIn(0, maxX) to y.coerceIn(0, maxY)
     }
 
     fun getTargetCenter(key: String): Pair<Float, Float>? {
         targetPositions[key]?.let { return it }
         val view = targetViews[key] ?: return null
         val params = targetParams[key] ?: return null
-        val w = if (view.width > 0) view.width else 88
-        val h = if (view.height > 0) view.height else 88
+        val fallbackSize = (88f * resources.displayMetrics.density).toInt()
+        val w = view.width.takeIf { it > 0 } ?: fallbackSize
+        val h = view.height.takeIf { it > 0 } ?: fallbackSize
         val center = Pair(params.x + w / 2f, params.y + h / 2f)
         targetPositions[key] = center
         return center
@@ -314,11 +367,22 @@ class FloatingService : Service() {
         val view = LayoutInflater.from(this).inflate(R.layout.floating_controller, null)
 
         controllerStatus = view.findViewById(R.id.controllerStatus)
+        controllerStatus.text = savedStatusLabel
         controllerPlayBtn = view.findViewById(R.id.controllerPlay)
         controllerLockBtn = view.findViewById(R.id.controllerLock)
         val stopBtn = view.findViewById<Button>(R.id.controllerStop)
         val restoreBtn = view.findViewById<Button>(R.id.controllerRestore)
         val hideBtn = view.findViewById<Button>(R.id.controllerHide)
+        val exitBtn = view.findViewById<Button>(R.id.controllerExit)
+
+        val screenWidth = resources.displayMetrics.widthPixels
+        val screenHeight = resources.displayMetrics.heightPixels
+        view.measure(
+            View.MeasureSpec.makeMeasureSpec(screenWidth, View.MeasureSpec.AT_MOST),
+            View.MeasureSpec.makeMeasureSpec(screenHeight, View.MeasureSpec.AT_MOST)
+        )
+        params.x = params.x.coerceIn(0, (screenWidth - view.measuredWidth).coerceAtLeast(0))
+        params.y = params.y.coerceIn(0, (screenHeight - view.measuredHeight).coerceAtLeast(0))
 
         // Drag support using the status label as the handle, so the buttons
         // underneath it stay tappable.
@@ -329,6 +393,7 @@ class FloatingService : Service() {
             private var touchY = 0f
 
             override fun onTouch(v: View, event: MotionEvent): Boolean {
+                if (isPlaying) return true
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
                         startX = params.x
@@ -338,8 +403,10 @@ class FloatingService : Service() {
                         return true
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        params.x = startX + (event.rawX - touchX).toInt()
-                        params.y = startY + (event.rawY - touchY).toInt()
+                        params.x = (startX + (event.rawX - touchX).toInt())
+                            .coerceIn(0, (resources.displayMetrics.widthPixels - view.width).coerceAtLeast(0))
+                        params.y = (startY + (event.rawY - touchY).toInt())
+                            .coerceIn(0, (resources.displayMetrics.heightPixels - view.height).coerceAtLeast(0))
                         windowManager.updateViewLayout(view, params)
                         prefs.edit {
                             putFloat("controller_x", params.x.toFloat())
@@ -357,6 +424,7 @@ class FloatingService : Service() {
         restoreBtn.setOnClickListener { restoreAllTargets() }
         controllerLockBtn.setOnClickListener { toggleLock() }
         hideBtn.setOnClickListener { view.visibility = View.GONE }
+        exitBtn.setOnClickListener { requestServiceStop() }
 
         windowManager.addView(view, params)
         controllerView = view
@@ -381,6 +449,11 @@ class FloatingService : Service() {
     /** Called by MainActivity whenever the trip details change, to keep the Play button up to date. */
     fun updateSavedSequence(sequence: List<String>, statusLabel: String) {
         savedSequence = sequence
+        savedStatusLabel = statusLabel
+        prefs.edit {
+            putString("saved_sequence", sequence.joinToString(","))
+            putString("saved_status", statusLabel)
+        }
         if (!isPlaying) {
             controllerStatus.text = statusLabel
         }
@@ -401,29 +474,98 @@ class FloatingService : Service() {
             return
         }
 
+        val sequence = savedSequence.toList()
+        val missingTarget = sequence.firstOrNull { it !in targetViews || getTargetCenter(it) == null }
+        if (missingTarget != null) {
+            controllerStatus.text = "Ibalik ang target: $missingTarget"
+            Toast.makeText(this, "Ibalik muna ang nawawalang target na $missingTarget.", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (sequence.any { targetOverlapsController(it) }) {
+            controllerStatus.text = "Ilayo ang controller sa mga target"
+            Toast.makeText(this, "Ilayo muna ang controller sa denomination targets para hindi nito maagaw ang tap.", Toast.LENGTH_LONG).show()
+            return
+        }
+
         isPlaying = true
         stopRequested = false
+        stopServiceAfterPlayback = false
         controllerPlayBtn.isEnabled = false
-        controllerStatus.text = "▶ Running..."
-        hideAllTargets()
+        var seconds = 3
+        val countdown = object : Runnable {
+            override fun run() {
+                if (stopRequested) {
+                    countdownRunnable = null
+                    finishPlayback("⏹ Stopped")
+                    return
+                }
+                if (seconds > 0) {
+                    controllerStatus.text = "Suriin ${seconds}s"
+                    seconds -= 1
+                    mainHandler.postDelayed(this, 1_000L)
+                    return
+                }
+                countdownRunnable = null
+                controllerStatus.text = "▶ Running..."
+                hideAllTargets()
+                tapStep(svc, sequence, 0)
+            }
+        }
+        countdownRunnable = countdown
+        mainHandler.post(countdown)
+    }
 
-        mainHandler.postDelayed({
-            tapStep(svc, savedSequence, 0)
-        }, 200L)
+    private fun targetOverlapsController(key: String): Boolean {
+        val center = getTargetCenter(key) ?: return false
+        val controller = controllerView ?: return false
+        val params = controllerParams ?: return false
+        if (controller.visibility != View.VISIBLE || controller.width <= 0 || controller.height <= 0) return false
+        return center.first >= params.x && center.first <= params.x + controller.width &&
+                center.second >= params.y && center.second <= params.y + controller.height
     }
 
     private fun stopPlayback() {
         if (!isPlaying) return
         stopRequested = true
+        countdownRunnable?.let {
+            mainHandler.removeCallbacks(it)
+            countdownRunnable = null
+            finishPlayback("⏹ Stopped")
+        }
+    }
+
+    private fun requestServiceStop() {
+        if (isPlaying) {
+            stopServiceAfterPlayback = true
+            stopPlayback()
+        } else {
+            stopSelf()
+        }
+    }
+
+    private fun finishPlayback(status: String) {
+        if (targetsHidden) showAllTargets()
+        isPlaying = false
+        controllerPlayBtn.isEnabled = true
+        controllerStatus.text = status
+        stopRequested = false
+        val shouldStopService = stopServiceAfterPlayback
+        stopServiceAfterPlayback = false
+        if (shouldStopService) stopSelf()
+    }
+
+    private fun failPlayback(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        finishPlayback("⚠ Tap failed — stopped")
     }
 
     private fun tapStep(svc: AutoClickService, sequence: List<String>, index: Int) {
-        if (stopRequested || index >= sequence.size) {
-            showAllTargets()
-            isPlaying = false
-            controllerPlayBtn.isEnabled = true
-            controllerStatus.text = if (stopRequested) "⏹ Stopped" else "✅ Done"
-            stopRequested = false
+        if (stopRequested) {
+            finishPlayback("⏹ Stopped")
+            return
+        }
+        if (index >= sequence.size) {
+            finishPlayback("✅ Done")
             return
         }
 
@@ -431,12 +573,15 @@ class FloatingService : Service() {
         val pos = getTargetCenter(key)
 
         if (pos == null) {
-            // Target was closed/missing — skip and continue
-            tapStep(svc, sequence, index + 1)
+            failPlayback("Nawawala ang target na $key; itinigil ang sequence.")
             return
         }
 
-        svc.tapAt(pos.first, pos.second) {
+        svc.tapAt(pos.first, pos.second) { succeeded ->
+            if (!succeeded) {
+                failPlayback("Hindi nakumpleto ang tap sa $key; itinigil ang sequence.")
+                return@tapAt
+            }
             val nextDelay = if (key == "CHECK") 350L else 180L
             mainHandler.postDelayed({
                 tapStep(svc, sequence, index + 1)
@@ -447,6 +592,8 @@ class FloatingService : Service() {
     override fun onDestroy() {
         isRunning = false
         instance = null
+        isPlaying = false
+        countdownRunnable = null
         mainHandler.removeCallbacksAndMessages(null)
         for ((_, v) in targetViews) {
             if (v.isAttachedToWindow) {
@@ -460,6 +607,8 @@ class FloatingService : Service() {
         }
         targetViews.clear()
         targetParams.clear()
+        targetPositions.clear()
+        stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
     }
 }

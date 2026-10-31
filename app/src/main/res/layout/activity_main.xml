@@ -172,6 +172,7 @@
         <!-- Results -->
         <TextView
             android:id="@+id/tvFareResult"
+            android:accessibilityLiveRegion="polite"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Fare: ₱0"
@@ -195,6 +196,7 @@
 
         <TextView
             android:id="@+id/tvChangeResult"
+            android:accessibilityLiveRegion="polite"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Sukli: ₱0"
@@ -208,6 +210,7 @@
         <!-- Auto-click order preview -->
         <TextView
             android:id="@+id/tvAutoSequence"
+            android:accessibilityLiveRegion="polite"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Auto-click order: —"
