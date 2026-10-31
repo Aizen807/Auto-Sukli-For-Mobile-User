@@ -9,24 +9,24 @@ import org.junit.Test
 
 class FareCalculatorTest {
     @Test
-    fun calculatesMixedPassengerFareAtMinimumUnits() {
+    fun appliesUpdatedRatesToMixedPassengerFareAtMinimumUnits() {
         val fare = calculateFare(fromIdx = 0, toIdx = 3, regular = 1, student = 1, senior = 0)
 
         assertEquals(4, fare.unitsCount)
-        assertEquals(13L, fare.regularFare)
-        assertEquals(11L, fare.reducedFare)
-        assertEquals(24L, fare.total)
+        assertEquals(14L, fare.regularFare)
+        assertEquals(12L, fare.reducedFare)
+        assertEquals(26L, fare.total)
     }
 
     @Test
-    fun addsSurchargeForUnitsBeyondMinimum() {
+    fun appliesUpdatedRatesAndSurchargeBeyondMinimumUnits() {
         val fare = calculateFare(fromIdx = 0, toIdx = 5, regular = 2, student = 1, senior = 2)
 
         assertEquals(6, fare.unitsCount)
         assertEquals(2, fare.extra)
-        assertEquals(17L, fare.regularFare)
-        assertEquals(15L, fare.reducedFare)
-        assertEquals(79L, fare.total)
+        assertEquals(18L, fare.regularFare)
+        assertEquals(16L, fare.reducedFare)
+        assertEquals(84L, fare.total)
     }
 
     @Test

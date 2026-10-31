@@ -6,8 +6,8 @@ import kotlin.math.abs
 import kotlin.math.max
 
 internal const val MINIMUM_UNITS = 4
-private const val BASE_REGULAR_FARE = 13L
-private const val BASE_REDUCED_FARE = 11L
+private const val BASE_REGULAR_FARE = 14L
+private const val BASE_REDUCED_FARE = 12L
 private const val EXTRA_FARE_PER_UNIT = 2L
 private const val MAX_AUTOMATIC_TAPS = 50L
 

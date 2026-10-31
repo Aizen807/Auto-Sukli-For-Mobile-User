@@ -10,7 +10,7 @@ The current Fare Matrix data includes:
 - **Guiguinto ↔ Bulakan:** Bagumbayan/San Jose, Matungao, Tuktukan
 - **Malolos ↔ Bulakan:** Bagumbayan/San Jose, Maysantol, San Nicolas, Pitpitan, Mambog, Matimbo, Panasahan, Bagna, Atlag, San Juan/Sto. Rosario
 
-Fare calculation uses the included reference rules: minimum 4 units, ₱13 per regular passenger, ₱11 per student or senior passenger, and +₱2 for each unit beyond the minimum. Mixed passenger types are calculated separately. Confirm these route stops and fares against the current official Fare Matrix before using the app for real transactions.
+Fare calculation applies the same rates to all three route options: minimum 4 units, ₱14 per regular passenger, ₱12 per student or senior passenger, and +₱2 for each unit beyond the minimum. Mixed passenger types are calculated separately. Confirm these route stops and fares against the current official Fare Matrix before using the app for real transactions.
 
 ## Download the debug APK from GitHub Actions
 
