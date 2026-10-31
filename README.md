@@ -1,90 +1,73 @@
 # Auto Sukli for Mobile User
 
-Auto Sukli is an Android Fare Matrix calculator for the Diesel N' Steel route setup. Choose the route, pickup, drop-off, passenger type, passenger count, and payment amount. The app calculates the fare and change, then uses the configured Accessibility Service to tap the denomination targets automatically.
+Auto Sukli helps calculate a trip fare and change, then can tap the matching denomination buttons on the current Android screen. It combines a route-based fare calculator with draggable floating controls, so you can edit a trip while keeping the cashier or payment app visible.
 
-## Fare rules included
+> **Important:** Automatic tapping uses saved screen coordinates. Auto Sukli does not check which app is open, read screen contents, or confirm what a button does. Always verify the active screen and target positions before playback.
 
-The current Fare Matrix data includes:
+## Features
+
+- **Route and stop selection:** Choose Balagtas, Guiguinto, or Malolos, then set pickup and drop-off stops.
+- **Tap-based passenger counters:** Add or remove Regular, Student, and Senior passengers independently; mixed passenger groups are supported.
+- **Fare and change calculator:** The current fare rules use a ₱14 regular base and a ₱12 student/senior base, with ₱2 added per route unit beyond the four-unit minimum. The app shows the fare breakdown, amount paid, exact change, and planned tap sequence.
+- **Quick payment amounts:** Enter a payment amount or use the ₱20, ₱50, and ₱100 presets. Amounts may include up to two decimal places.
+- **Automatic denomination sequence:** For supported whole-peso change, Auto Sukli taps the saved ₱50, ₱20, ₱10, ₱5, and ₱1 targets in order, followed by the check target.
+- **Floating controller:** Start playback, stop it, edit the trip, restore targets, lock or unlock target movement, hide or show denomination targets, cycle their size, hide the controller, or exit and remove the overlays.
+- **Floating Quick Edit:** Open the draggable editor over the current app. Its route, stop, passenger, and payment fields share and save the trip details automatically. The fields scroll while **Save & play change sequence** stays pinned at the bottom.
+- **Playback safety controls:** A three-second countdown gives you time to check the screen. Missing or obstructed targets prevent playback from starting; use the controller’s **Stop** button to cancel an active sequence.
+
+## Routes and fare rules
+
+The app currently includes these route stops:
 
 - **Balagtas ↔ Bulakan:** Bagumbayan/San Jose, Matungao, Panginay Guiguinto, Panginay Balagtas, Wawa
 - **Guiguinto ↔ Bulakan:** Bagumbayan/San Jose, Matungao, Tuktukan
 - **Malolos ↔ Bulakan:** Bagumbayan/San Jose, Maysantol, San Nicolas, Pitpitan, Mambog, Matimbo, Panasahan, Bagna, Atlag, San Juan/Sto. Rosario
 
-Fare calculation uses the reference Fare Matrix rules: minimum 4 units, ₱13 per regular passenger, ₱11 per student or senior passenger, and +₱2 for every unit beyond the minimum. The selected passenger type and count are applied to the fare.
+The same fare calculation is used for all three routes. Student and Senior passengers use the reduced fare, and their totals are calculated separately from Regular passengers. Route and fare data are built into the app; verify them against the current official Fare Matrix before relying on them for real transactions.
 
-## Download the APK from GitHub Actions
+## Download the debug APK from GitHub Actions
 
-1. Open the repository on GitHub: <https://github.com/Aizen807/Auto-Sukli-For-Mobile-User>.
+1. Open the [Auto Sukli repository](https://github.com/Aizen807/Auto-Sukli-For-Mobile-User).
 2. Tap **Actions**.
-3. Open the newest successful **Build APK** workflow run. A successful run has a green check mark.
-4. Scroll to **Artifacts** and download **auto-sukli-debug-apk**.
-5. Extract the downloaded ZIP file. Inside it is an `.apk` file.
-6. Open the APK on your Android phone and allow installation from that source if Android asks.
+3. Open the newest successful **Build APK** workflow run.
+4. Download **auto-sukli-debug-apk** under Artifacts and extract the `.apk` file.
+5. Install the APK on your Android phone, allowing installation from that source if Android asks.
 
-The APK is not currently published under **Releases**. It is stored as a workflow artifact. Artifacts may expire according to GitHub's retention settings, so download a copy when needed.
+The APK is currently published as a workflow artifact, not under **Releases**. Artifacts may expire under GitHub’s retention settings, so download a copy when needed.
 
-## Build the APK locally
-
-Install Android Studio, Android SDK Platform 34, and Java 17. Then open a terminal in the repository folder and run:
-
-```bash
-./gradlew assembleDebug
-```
-
-On Windows, run:
-
-```bat
-gradlew.bat assembleDebug
-```
-
-The generated debug APK will be here:
-
-```text
-app/build/outputs/apk/debug/app-debug.apk
-```
-
-A debug APK is suitable for testing on your own phone. It is not a Play Store release APK and is not signed with a production signing key.
-
-## First-time phone setup
+## Set up and use on your phone
 
 1. Install and open the APK.
 2. Tap **Enable Accessibility Service**, select **Auto Sukli**, and enable it.
-3. Return to the app and tap **Show / Arrange Targets**.
-4. Allow the app to display over other apps.
-5. Move the ₱50, ₱20, ₱10, ₱5, ₱1, and check targets to the correct positions in the cashier/payment screen.
-6. Choose the route, pickup, drop-off, passenger type, and passenger count.
-7. Enter the Regular, Student, and Senior passenger counts. You can use any combination, such as 1 regular + 1 student.
-8. Enter the passenger's payment amount.
-9. The latest fare and change sequence is automatically saved whenever you change the route, pickup, drop-off, passenger counts, or payment. You can also tap **UPDATE / SAVE SUKLI NOW**.
-10. You may now close or leave the main app. The floating controller remains available.
-11. Tap the blue **▶ Play** button on the floating controller to start the saved auto-sukli sequence.
-12. If all denomination targets were closed, tap the green **+** button to restore them. The controller itself stays visible and cannot be closed by closing denomination targets.
+3. Tap **Show / Arrange Targets** and allow the app to display over other apps. On Android 13 or later, allow notifications so the active service notification and its **Stop overlays** action are available.
+4. Move the ₱50, ₱20, ₱10, ₱5, ₱1, and check targets onto the matching buttons in the cashier/payment screen. Use the controller’s size control if needed, and lock targets once they are positioned.
+5. Select the route, pickup, and drop-off. Use **+** and **−** for the Regular, Student, and Senior counts; you can combine passenger types.
+6. Enter the amount paid or tap a quick amount. Check the displayed fare, change, and click order.
+7. For edits without leaving the cashier screen, tap **Edit** on the floating controller. Drag the Quick Edit panel by its top bar; scroll through the fields as needed. Changes save as you make them. Choose **Save & play change sequence** to start playback, or close the panel and use the controller’s **Play** button.
+8. Confirm that the intended cashier/payment screen is still open. Wait through the three-second countdown, or tap **Stop** to cancel. Auto Sukli hides the targets and makes them click-through during playback, then restores them afterward.
+9. If you closed a target, tap **Restore**. Use **Hide targets / Show targets** to toggle the denomination targets. **Hide** hides the controller; reopen it from the app’s controller button. **Exit** or the notification’s **Stop overlays** action stops the service and removes the overlays.
 
-For example, if the app calculates ₱35 fare and the passenger pays ₱50, it displays ₱15 change and taps the ₱10, ₱5, and check targets.
+For example, a ₱35 fare paid with ₱50 produces ₱15 change and the sequence ₱10, ₱5, then ✓. For ₱85 change, the sequence is ₱50, ₱20, ₱10, ₱5, then ✓.
 
-The result screen also shows the exact click order. For example, for ₱85 change:
+## Safety and limitations
 
-```text
-Sukli: ₱85
-Status: 50 + 20 + 10 + 5
-Auto-click: highest to lowest, then ✓
+- Accessibility is used to perform taps, not to retrieve screen contents. The app does not identify the foreground app or verify that the saved coordinates still point to the correct buttons.
+- Check the open screen and every target position before each run. Keep the controller’s **Stop** button accessible and use the countdown to cancel if anything looks wrong.
+- Automatic targets support only ₱50, ₱20, ₱10, ₱5, and ₱1. Fractional-peso change is displayed but must be handled manually; it is never rounded into an automatic sequence.
+- Automatic denomination plans are limited to 50 denomination taps, followed by the check tap. Larger change amounts must be handled manually.
+- If Android reports a failed or cancelled tap, Auto Sukli stops instead of continuing to the next denomination.
+- The standard GitHub Actions workflow builds a debug APK for testing, not a Play Store release. A signed-release workflow is also included and requires private signing secrets.
+
+## Build locally
+
+Install Android Studio, Android SDK Platform 34, and Java 17. From a terminal at the repository root, run:
+
+```bash
+./gradlew testDebugUnitTest assembleDebug
 ```
 
-The app calculates this sequence using the available targets in descending order: ₱50, ₱20, ₱10, ₱5, then ₱1. It temporarily hides the targets while Accessibility playback runs so the overlay windows do not intercept the underlying app's buttons, then restores them after playback.
+On Windows, run `gradlew.bat testDebugUnitTest assembleDebug`. The debug APK is created at `app/build/outputs/apk/debug/app-debug.apk`.
 
-The floating controller is intentionally persistent: the blue Play button starts the latest saved sequence even when the main app screen is no longer open, the red Stop button cancels playback, the green Plus button restores every closed denomination target, and the lock button prevents accidental target movement or closing while the layout is ready. Use the controller's **Hide** button to remove it normally; reopen Auto Sukli and tap **Show Floating Controller** to bring it back without force-stopping the app.
+## Build a signed release APK
 
-## Important safety note
-
-Accessibility access allows the app to perform screen gestures. Enable it only for this app and disable it in Android Settings when you are finished testing. The overlay and Accessibility permissions are required for the automatic tapping feature. Verify every target position before using the app for real transactions.
-
-## Current limitations
-
-- The supported denominations are fixed at ₱50, ₱20, ₱10, ₱5, and ₱1.
-- Mixed regular, student, and senior passenger counts are supported.
-- The app currently creates a debug APK through GitHub Actions.
-- A signed-release workflow is included, but it needs the private GitHub Secrets described below.
-
-## Signed release APK
-
-The repository includes `.github/workflows/release.yml`. Before using it, create a private Android keystore and add these GitHub Actions Secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. Never commit the keystore or passwords. Then run **Actions → Release signed APK → Run workflow** with a version tag such as `v1.0.0`. The workflow publishes the signed APK under GitHub Releases.
+The repository includes `.github/workflows/release.yml`. Create a private Android keystore and add these GitHub Actions Secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD`. Never commit the keystore or passwords. Then run **Actions → Release signed APK → Run workflow** with a version tag such as `v1.0.0`. The workflow checks the required secrets, runs the regression tests, builds a release APK, and publishes it under GitHub Releases.
