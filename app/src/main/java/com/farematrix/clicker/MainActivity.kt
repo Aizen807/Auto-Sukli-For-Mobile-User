@@ -75,6 +75,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnReset: Button
 
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val editorPrefs by lazy { getSharedPreferences("fare_editor", MODE_PRIVATE) }
     private val routeKeys = ROUTES.keys.toList()
     private var selectedRouteIndex = 0
     private var currentBarangays: List<Pair<String, Int>> = emptyList()
@@ -152,9 +153,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         setupRouteSelector()
+        selectedRouteIndex = editorPrefs.getInt("route_index", 0).coerceIn(routeKeys.indices)
         buildPickupDropoffAdapters()
         setupPassengerSteppers()
         setupRecalcListeners()
+        restoreFareEditorState()
 
         findViewById<Button>(R.id.btnSwap).setOnClickListener {
             val pickup = spPickup.selectedItemPosition
@@ -179,6 +182,31 @@ class MainActivity : AppCompatActivity() {
 
         updateRouteButtonStates()
         recalcAndSave(showToast = false)
+    }
+
+    private fun restoreFareEditorState() {
+        suppressRecalc = true
+        spPickup.setSelection(
+            editorPrefs.getInt("pickup_position", 0).coerceIn(0, currentBarangays.lastIndex)
+        )
+        spDropoff.setSelection(
+            editorPrefs.getInt("dropoff_position", currentBarangays.lastIndex)
+                .coerceIn(0, currentBarangays.lastIndex)
+        )
+        tvRegularCount.text = savedPassengerCount("regular_passengers", "1")
+        tvStudentCount.text = savedPassengerCount("student_passengers", "0")
+        tvSeniorCount.text = savedPassengerCount("senior_passengers", "0")
+        etPayment.setText(editorPrefs.getString("payment_amount", "").orEmpty())
+        suppressRecalc = false
+
+        tvRegularCount.contentDescription = "Regular passengers: ${tvRegularCount.text}"
+        tvStudentCount.contentDescription = "Student passengers: ${tvStudentCount.text}"
+        tvSeniorCount.contentDescription = "Senior passengers: ${tvSeniorCount.text}"
+    }
+
+    private fun savedPassengerCount(key: String, defaultValue: String): String {
+        val saved = editorPrefs.getString(key, defaultValue)?.toLongOrNull()
+        return saved?.takeIf { it >= 0L }?.toString() ?: defaultValue
     }
 
     override fun onResume() {
@@ -365,6 +393,16 @@ class MainActivity : AppCompatActivity() {
     /** Recalculates the visible fare/change and saves the latest safe tap sequence. */
     private fun recalcAndSave(showToast: Boolean) {
         if (suppressRecalc || currentBarangays.isEmpty()) return
+
+        editorPrefs.edit()
+            .putInt("route_index", selectedRouteIndex)
+            .putInt("pickup_position", spPickup.selectedItemPosition)
+            .putInt("dropoff_position", spDropoff.selectedItemPosition)
+            .putString("regular_passengers", tvRegularCount.text.toString())
+            .putString("student_passengers", tvStudentCount.text.toString())
+            .putString("senior_passengers", tvSeniorCount.text.toString())
+            .putString("payment_amount", etPayment.text.toString())
+            .apply()
 
         val fromIdx = currentBarangays.getOrNull(spPickup.selectedItemPosition)?.second ?: return
         val toIdx = currentBarangays.getOrNull(spDropoff.selectedItemPosition)?.second ?: return

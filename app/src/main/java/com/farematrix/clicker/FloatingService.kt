@@ -396,6 +396,7 @@ class FloatingService : Service() {
         controllerStatus.text = savedStatusLabel
         controllerPlayBtn = view.findViewById(R.id.controllerPlay)
         controllerLockBtn = view.findViewById(R.id.controllerLock)
+        val editBtn = view.findViewById<Button>(R.id.controllerEdit)
         val stopBtn = view.findViewById<Button>(R.id.controllerStop)
         val restoreBtn = view.findViewById<Button>(R.id.controllerRestore)
         val hideBtn = view.findViewById<Button>(R.id.controllerHide)
@@ -454,6 +455,7 @@ class FloatingService : Service() {
         })
 
         controllerPlayBtn.setOnClickListener { playSequence() }
+        editBtn.setOnClickListener { openFareEditor() }
         stopBtn.setOnClickListener { stopPlayback() }
         restoreBtn.setOnClickListener { restoreAllTargets() }
         controllerLockBtn.setOnClickListener { toggleLock() }
@@ -463,6 +465,17 @@ class FloatingService : Service() {
         windowManager.addView(view, params)
         controllerView = view
         controllerParams = params
+    }
+
+    private fun openFareEditor() {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    Intent.FLAG_ACTIVITY_SINGLE_TOP
+            )
+        }
+        startActivity(intent)
     }
 
     /** Called by MainActivity — bring the controller back after Hide, without restarting the service. */
