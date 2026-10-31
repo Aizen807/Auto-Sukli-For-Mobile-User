@@ -29,6 +29,16 @@
         android:padding="3dp" />
 
     <Button
+        android:id="@+id/controllerEdit"
+        android:layout_width="70dp"
+        android:layout_height="42dp"
+        android:text="Edit"
+        android:textSize="12sp"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#D18A22"
+        android:contentDescription="Open fare editor for route, passengers, and change" />
+
+    <Button
         android:id="@+id/controllerStop"
         android:layout_width="70dp"
         android:layout_height="48dp"
@@ -67,5 +77,15 @@
         android:textColor="#FFFFFF"
         android:backgroundTint="#444444"
         android:contentDescription="Hide floating controller" />
+
+    <Button
+        android:id="@+id/controllerExit"
+        android:layout_width="70dp"
+        android:layout_height="42dp"
+        android:text="Exit"
+        android:textSize="11sp"
+        android:textColor="#FFFFFF"
+        android:backgroundTint="#7A2020"
+        android:contentDescription="Stop Auto Sukli and remove all overlays" />
 
 </LinearLayout>

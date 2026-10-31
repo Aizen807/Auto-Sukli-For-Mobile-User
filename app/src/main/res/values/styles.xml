@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.AutoSukli" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorAccent">@color/gold</item>
+        <item name="android:colorAccent">@color/gold</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:statusBarColor">@color/forest</item>
+        <item name="android:navigationBarColor">@color/forest</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

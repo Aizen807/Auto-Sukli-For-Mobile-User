@@ -61,7 +61,7 @@ class AutoClickService : AccessibilityService() {
      * gesture completed or was cancelled — this is what lets us chain taps
      * without the system cancelling the previous one.
      */
-    fun tapAt(x: Float, y: Float, onDone: () -> Unit) {
+    fun tapAt(x: Float, y: Float, onDone: (Boolean) -> Unit) {
         // Tap duration must be >= ViewConfiguration.getTapTimeout() (115ms default)
         // or Android drops the gesture as a "non-event".
         val tapDuration = ViewConfiguration.getTapTimeout().toLong().coerceAtLeast(115L)
@@ -71,25 +71,36 @@ class AutoClickService : AccessibilityService() {
         val gesture = GestureDescription.Builder().addStroke(stroke).build()
 
         var callbackFired = false
+        val timeoutRunnable = Runnable {
+            if (!callbackFired) {
+                callbackFired = true
+                onDone(false)
+            }
+        }
+        mainHandler.postDelayed(timeoutRunnable, tapDuration + 1_500L)
 
         val dispatched = dispatchGesture(gesture, object : GestureResultCallback() {
             override fun onCompleted(gestureDescription: GestureDescription?) {
-                if (callbackFired) return
-                callbackFired = true
-                mainHandler.post { onDone() }
+                finishGesture(true)
             }
 
             override fun onCancelled(gestureDescription: GestureDescription?) {
+                finishGesture(false)
+            }
+
+            private fun finishGesture(succeeded: Boolean) {
                 if (callbackFired) return
                 callbackFired = true
-                mainHandler.post { onDone() }
+                mainHandler.removeCallbacks(timeoutRunnable)
+                mainHandler.post { onDone(succeeded) }
             }
         }, mainHandler)
 
-        // Safety net — if the system refuses to dispatch at all, don't hang the loop.
+        // A refusal is a failed tap, not a successful step in the change sequence.
         if (!dispatched && !callbackFired) {
             callbackFired = true
-            mainHandler.postDelayed({ onDone() }, tapDuration + 50L)
+            mainHandler.removeCallbacks(timeoutRunnable)
+            mainHandler.post { onDone(false) }
         }
     }
 
@@ -98,6 +109,6 @@ class AutoClickService : AccessibilityService() {
      * tests or individual taps from the UI). Uses a no-op completion handler.
      */
     fun tapOnce(x: Float, y: Float) {
-        tapAt(x, y) { /* nothing */ }
+        tapAt(x, y) { _ -> /* nothing */ }
     }
 }

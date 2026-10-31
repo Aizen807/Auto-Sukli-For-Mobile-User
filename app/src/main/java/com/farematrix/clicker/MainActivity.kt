@@ -1,6 +1,8 @@
 package com.farematrix.clicker
 
 import android.content.Intent
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -10,21 +12,16 @@ import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
-import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import kotlin.math.abs
-import kotlin.math.max
+import androidx.core.content.ContextCompat
 
-// ---------------------------------------------------------------------
-// Fare Matrix data — ported from the Fare Matrix PWA (dns-fare-guide1)
-// so both apps compute the exact same fare for the exact same trip.
-// ---------------------------------------------------------------------
 private data class RouteDef(val label: String, val units: List<List<String>>)
 
 private val ROUTES = linkedMapOf(
@@ -60,37 +57,15 @@ private val ROUTES = linkedMapOf(
     )
 )
 
-private const val MINIMUM_UNITS = 4
-private const val BASE_REGULAR_FARE = 13
-private const val BASE_REDUCED_FARE = 11
-private const val EXTRA_FARE_PER_UNIT = 2
-
-private data class FareResult(
-    val unitsCount: Int,
-    val extra: Int,
-    val regularFare: Int,
-    val reducedFare: Int,
-    val total: Int
-)
-
-private fun calculateFare(fromIdx: Int, toIdx: Int, regular: Int, student: Int, senior: Int): FareResult {
-    val unitsCount = abs(fromIdx - toIdx) + 1
-    val extra = max(0, unitsCount - MINIMUM_UNITS)
-    val regularFare = BASE_REGULAR_FARE + extra * EXTRA_FARE_PER_UNIT
-    val reducedFare = BASE_REDUCED_FARE + extra * EXTRA_FARE_PER_UNIT
-    val total = regular * regularFare + (student + senior) * reducedFare
-    return FareResult(unitsCount, extra, regularFare, reducedFare, total)
-}
-
 class MainActivity : AppCompatActivity() {
 
     private lateinit var statusText: TextView
-    private lateinit var spRoute: Spinner
+    private lateinit var routeButtons: List<Button>
     private lateinit var spPickup: Spinner
     private lateinit var spDropoff: Spinner
-    private lateinit var etRegularCount: EditText
-    private lateinit var etStudentCount: EditText
-    private lateinit var etSeniorCount: EditText
+    private lateinit var tvRegularCount: TextView
+    private lateinit var tvStudentCount: TextView
+    private lateinit var tvSeniorCount: TextView
     private lateinit var etPayment: EditText
     private lateinit var tvFareResult: TextView
     private lateinit var tvBreakdown: TextView
@@ -100,23 +75,40 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnReset: Button
 
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val editorPrefs by lazy { getSharedPreferences("fare_editor", MODE_PRIVATE) }
     private val routeKeys = ROUTES.keys.toList()
-
-    // Flat (barangay name, unit index) list for the currently selected route
+    private var selectedRouteIndex = 0
     private var currentBarangays: List<Pair<String, Int>> = emptyList()
     private var suppressRecalc = false
+
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                startFloatingServiceNow()
+            } else {
+                Toast.makeText(
+                    this,
+                    "I-enable ang notifications para makita at mapatigil ang overlay service.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         statusText = findViewById(R.id.statusText)
-        spRoute = findViewById(R.id.spRoute)
+        routeButtons = listOf(
+            findViewById(R.id.btnRouteBalagtas),
+            findViewById(R.id.btnRouteGuiguinto),
+            findViewById(R.id.btnRouteMalolos)
+        )
         spPickup = findViewById(R.id.spPickup)
         spDropoff = findViewById(R.id.spDropoff)
-        etRegularCount = findViewById(R.id.etRegularCount)
-        etStudentCount = findViewById(R.id.etStudentCount)
-        etSeniorCount = findViewById(R.id.etSeniorCount)
+        tvRegularCount = findViewById(R.id.tvRegularCount)
+        tvStudentCount = findViewById(R.id.tvStudentCount)
+        tvSeniorCount = findViewById(R.id.tvSeniorCount)
         etPayment = findViewById(R.id.etPayment)
         tvFareResult = findViewById(R.id.tvFareResult)
         tvBreakdown = findViewById(R.id.tvBreakdown)
@@ -142,9 +134,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // "3. Show Floating Controller" — brings the controller back after
-        // it was hidden with its own Hide button, without restarting the
-        // whole overlay service (which would also re-show every target).
+        // Restore the controller after it has been hidden without re-showing
+        // every denomination target.
         findViewById<Button>(R.id.btnController).setOnClickListener {
             val float = FloatingService.instance
             if (float != null) {
@@ -161,15 +152,61 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        setupRouteSpinner()
+        setupRouteSelector()
+        selectedRouteIndex = editorPrefs.getInt("route_index", 0).coerceIn(routeKeys.indices)
+        buildPickupDropoffAdapters()
+        setupPassengerSteppers()
         setupRecalcListeners()
+        restoreFareEditorState()
+
+        findViewById<Button>(R.id.btnSwap).setOnClickListener {
+            val pickup = spPickup.selectedItemPosition
+            val dropoff = spDropoff.selectedItemPosition
+            spPickup.setSelection(dropoff)
+            spDropoff.setSelection(pickup)
+        }
+
+        listOf(
+            R.id.btnPay20 to "20",
+            R.id.btnPay50 to "50",
+            R.id.btnPay100 to "100"
+        ).forEach { (buttonId, amount) ->
+            findViewById<Button>(buttonId).setOnClickListener {
+                etPayment.setText(amount)
+                etPayment.setSelection(etPayment.text.length)
+            }
+        }
 
         btnCalculateAndGive.setOnClickListener { recalcAndSave(showToast = true) }
         btnReset.setOnClickListener { resetTrip() }
 
-        // Reflect the default trip details (1 regular passenger, default route)
-        // immediately instead of leaving the placeholder XML text on screen.
+        updateRouteButtonStates()
         recalcAndSave(showToast = false)
+    }
+
+    private fun restoreFareEditorState() {
+        suppressRecalc = true
+        spPickup.setSelection(
+            editorPrefs.getInt("pickup_position", 0).coerceIn(0, currentBarangays.lastIndex)
+        )
+        spDropoff.setSelection(
+            editorPrefs.getInt("dropoff_position", currentBarangays.lastIndex)
+                .coerceIn(0, currentBarangays.lastIndex)
+        )
+        tvRegularCount.text = savedPassengerCount("regular_passengers", "1")
+        tvStudentCount.text = savedPassengerCount("student_passengers", "0")
+        tvSeniorCount.text = savedPassengerCount("senior_passengers", "0")
+        etPayment.setText(editorPrefs.getString("payment_amount", "").orEmpty())
+        suppressRecalc = false
+
+        tvRegularCount.contentDescription = "Regular passengers: ${tvRegularCount.text}"
+        tvStudentCount.contentDescription = "Student passengers: ${tvStudentCount.text}"
+        tvSeniorCount.contentDescription = "Senior passengers: ${tvSeniorCount.text}"
+    }
+
+    private fun savedPassengerCount(key: String, defaultValue: String): String {
+        val saved = editorPrefs.getString(key, defaultValue)?.toLongOrNull()
+        return saved?.takeIf { it >= 0L }?.toString() ?: defaultValue
     }
 
     override fun onResume() {
@@ -198,159 +235,266 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startFloatingService() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        startFloatingServiceNow()
+    }
+
+    private fun startFloatingServiceNow() {
         val intent = Intent(this, FloatingService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(intent)
         } else {
             startService(intent)
         }
-        // Push whatever trip details are already on screen to the new
-        // controller right away — the person shouldn't have to touch a
-        // field again just because the overlay only now started existing.
+        // Immediately send the currently displayed trip to a newly started controller.
         mainHandler.postDelayed({
             updateStatus()
             recalcAndSave(showToast = false)
         }, 500)
     }
 
-    // -----------------------------------------------------------------
-    // Trip details UI
-    // -----------------------------------------------------------------
+    private fun setupRouteSelector() {
+        routeButtons.forEachIndexed { index, button ->
+            button.setOnClickListener { selectRoute(index) }
+        }
+    }
 
-    private fun setupRouteSpinner() {
-        val labels = routeKeys.map { ROUTES[it]!!.label }
-        spRoute.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, labels).also {
-            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        }
-        spRoute.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                buildPickupDropoffAdapters()
-                recalcAndSave(showToast = false)
-            }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        }
+    private fun selectRoute(index: Int) {
+        if (index !in routeKeys.indices || index == selectedRouteIndex) return
+        selectedRouteIndex = index
+        updateRouteButtonStates()
         buildPickupDropoffAdapters()
+        recalcAndSave(showToast = false)
+    }
+
+    private fun updateRouteButtonStates() {
+        routeButtons.forEachIndexed { index, button ->
+            val selected = index == selectedRouteIndex
+            val routeName = ROUTES[routeKeys[index]]!!.label
+            button.isSelected = selected
+            button.setTextColor(
+                ContextCompat.getColor(
+                    this,
+                    if (selected) R.color.ink else R.color.cream
+                )
+            )
+            button.contentDescription = "$routeName route${if (selected) ", selected" else ""}"
+        }
     }
 
     private fun buildPickupDropoffAdapters() {
-        val route = ROUTES[routeKeys[spRoute.selectedItemPosition]]!!
+        val route = ROUTES[routeKeys[selectedRouteIndex]]!!
         val flat = mutableListOf<Pair<String, Int>>()
         route.units.forEachIndexed { idx, names -> names.forEach { flat.add(it to idx) } }
         currentBarangays = flat
 
         val names = flat.map { it.first }
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, names).also {
+        val adapter = object : ArrayAdapter<String>(
+            this,
+            android.R.layout.simple_spinner_item,
+            names
+        ) {
+            override fun getView(position: Int, convertView: View?, parent: android.view.ViewGroup): View {
+                return styleSpinnerText(super.getView(position, convertView, parent), dropdown = false)
+            }
+
+            override fun getDropDownView(position: Int, convertView: View?, parent: android.view.ViewGroup): View {
+                return styleSpinnerText(super.getDropDownView(position, convertView, parent), dropdown = true)
+            }
+        }.also {
             it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+
+        val itemListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: android.widget.AdapterView<*>?,
+                view: View?,
+                position: Int,
+                id: Long
+            ) {
+                recalcAndSave(showToast = false)
+            }
+
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) = Unit
         }
 
         suppressRecalc = true
         spPickup.adapter = adapter
         spDropoff.adapter = adapter
-        spPickup.setSelection(0)
-        spDropoff.setSelection(names.size - 1)
-        suppressRecalc = false
-
-        val itemListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                recalcAndSave(showToast = false)
-            }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        }
         spPickup.onItemSelectedListener = itemListener
         spDropoff.onItemSelectedListener = itemListener
+        spPickup.setSelection(0)
+        spDropoff.setSelection(names.lastIndex)
+        suppressRecalc = false
+    }
+
+    private fun styleSpinnerText(view: View, dropdown: Boolean): View {
+        val text = view as? TextView ?: return view
+        text.setTextColor(ContextCompat.getColor(this, R.color.cream))
+        text.textSize = 15f
+        text.setPadding(dp(14), dp(if (dropdown) 12 else 10), dp(14), dp(if (dropdown) 12 else 10))
+        if (dropdown) text.setBackgroundColor(ContextCompat.getColor(this, R.color.surface))
+        return text
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    private fun setupPassengerSteppers() {
+        bindStepper(R.id.btnRegularMinus, tvRegularCount, R.id.btnRegularPlus, "Regular")
+        bindStepper(R.id.btnStudentMinus, tvStudentCount, R.id.btnStudentPlus, "Student")
+        bindStepper(R.id.btnSeniorMinus, tvSeniorCount, R.id.btnSeniorPlus, "Senior")
+    }
+
+    private fun bindStepper(minusId: Int, count: TextView, plusId: Int, label: String) {
+        val minus = findViewById<Button>(minusId)
+        val plus = findViewById<Button>(plusId)
+        minus.contentDescription = "Remove one $label passenger"
+        plus.contentDescription = "Add one $label passenger"
+        minus.setOnClickListener { adjustPassengerCount(count, -1L) }
+        plus.setOnClickListener { adjustPassengerCount(count, 1L) }
+        count.tag = label
+        count.contentDescription = "$label passengers: ${count.text}"
+    }
+
+    private fun adjustPassengerCount(count: TextView, delta: Long) {
+        val current = count.text.toString().toLongOrNull() ?: 0L
+        val updated = try {
+            if (delta > 0L) Math.addExact(current, delta) else (current + delta).coerceAtLeast(0L)
+        } catch (_: ArithmeticException) {
+            Toast.makeText(this, "Sobra ang bilang ng pasahero.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        count.text = updated.toString()
+        count.contentDescription = "${count.tag} passengers: $updated"
+        recalcAndSave(showToast = false)
     }
 
     private fun setupRecalcListeners() {
-        val watcher = object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        etPayment.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
             override fun afterTextChanged(s: Editable?) {
                 recalcAndSave(showToast = false)
             }
-        }
-        etRegularCount.addTextChangedListener(watcher)
-        etStudentCount.addTextChangedListener(watcher)
-        etSeniorCount.addTextChangedListener(watcher)
-        etPayment.addTextChangedListener(watcher)
+        })
     }
 
-    private fun intFromField(field: EditText): Int =
-        field.text.toString().trim().toIntOrNull() ?: 0
+    private fun passengerCount(count: TextView): Long? {
+        val value = count.text.toString().trim().toLongOrNull() ?: return null
+        return value.takeIf { it >= 0L }
+    }
 
-    /**
-     * Recomputes fare + change from the current trip details, updates the
-     * on-screen result, and pushes the resulting auto-click sequence to the
-     * floating controller so its ▶ Play button always reflects the latest
-     * trip — even after this screen is closed.
-     */
+    /** Recalculates the visible fare/change and saves the latest safe tap sequence. */
     private fun recalcAndSave(showToast: Boolean) {
         if (suppressRecalc || currentBarangays.isEmpty()) return
+
+        editorPrefs.edit()
+            .putInt("route_index", selectedRouteIndex)
+            .putInt("pickup_position", spPickup.selectedItemPosition)
+            .putInt("dropoff_position", spDropoff.selectedItemPosition)
+            .putString("regular_passengers", tvRegularCount.text.toString())
+            .putString("student_passengers", tvStudentCount.text.toString())
+            .putString("senior_passengers", tvSeniorCount.text.toString())
+            .putString("payment_amount", etPayment.text.toString())
+            .apply()
 
         val fromIdx = currentBarangays.getOrNull(spPickup.selectedItemPosition)?.second ?: return
         val toIdx = currentBarangays.getOrNull(spDropoff.selectedItemPosition)?.second ?: return
 
-        val regular = intFromField(etRegularCount)
-        val student = intFromField(etStudentCount)
-        val senior = intFromField(etSeniorCount)
-        val totalPax = regular + student + senior
+        val regular = passengerCount(tvRegularCount)
+        val student = passengerCount(tvStudentCount)
+        val senior = passengerCount(tvSeniorCount)
+        if (regular == null || student == null || senior == null) {
+            showInvalidCalculation("Gumamit ng non-negative whole number para sa bilang ng pasahero.")
+            return
+        }
 
-        if (totalPax <= 0) {
-            tvFareResult.text = "Fare: ₱0"
+        val totalPax = try {
+            Math.addExact(Math.addExact(regular, student), senior)
+        } catch (_: ArithmeticException) {
+            showInvalidCalculation("Sobra ang bilang ng pasahero.")
+            return
+        }
+        if (totalPax <= 0L) {
+            tvFareResult.text = "₱0"
             tvBreakdown.text = "Maglagay ng hindi bababa sa 1 pasahero."
-            tvChangeResult.text = "Sukli: ₱0"
-            tvAutoSequence.text = "Auto-click order: —"
+            tvChangeResult.text = "₱0"
+            tvAutoSequence.text = "—"
             FloatingService.instance?.updateSavedSequence(emptyList(), "Ready")
             return
         }
 
-        val result = calculateFare(fromIdx, toIdx, regular, student, senior)
-        tvFareResult.text = "Fare: ₱${result.total}"
+        val result = try {
+            calculateFare(fromIdx, toIdx, regular, student, senior)
+        } catch (_: ArithmeticException) {
+            showInvalidCalculation("Sobra ang bilang ng pasahero.")
+            return
+        }
+        tvFareResult.text = "₱${result.total}"
 
-        val unitNote = if (result.unitsCount <= MINIMUM_UNITS)
+        val unitNote = if (result.unitsCount <= MINIMUM_UNITS) {
             "${result.unitsCount} unit(s), within minimum"
-        else
+        } else {
             "${result.unitsCount} units, +${result.extra} beyond minimum"
+        }
         tvBreakdown.text = "Regular ₱${result.regularFare} • Student/Senior ₱${result.reducedFare} • $unitNote"
 
         val paymentText = etPayment.text.toString().trim()
-        val payment = paymentText.toDoubleOrNull()
-
-        if (payment == null) {
-            tvChangeResult.text = "Sukli: ₱0"
-            tvAutoSequence.text = "Auto-click order: —"
-            FloatingService.instance?.updateSavedSequence(emptyList(), "Ready")
+        if (paymentText.isEmpty()) {
+            tvChangeResult.text = "—"
+            tvAutoSequence.text = "Ilagay ang binayad para makita ang sukli."
+            FloatingService.instance?.updateSavedSequence(emptyList(), "Ilagay ang bayad")
             return
         }
 
-        if (payment < result.total) {
+        val paymentCents = parsePaymentCents(paymentText)
+        if (paymentCents == null) {
+            tvChangeResult.text = "Invalid na halaga"
+            tvAutoSequence.text = "—"
+            FloatingService.instance?.updateSavedSequence(emptyList(), "Invalid na bayad")
+            if (showToast) Toast.makeText(this, "Hanggang dalawang decimal place lang ang bayad.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val totalCents = try {
+            Math.multiplyExact(result.total, 100L)
+        } catch (_: ArithmeticException) {
+            showInvalidCalculation("Sobra ang halaga ng pamasahe.")
+            return
+        }
+        if (paymentCents < totalCents) {
             tvChangeResult.text = "Kulang ang bayad"
-            tvAutoSequence.text = "Auto-click order: —"
+            tvAutoSequence.text = "—"
             FloatingService.instance?.updateSavedSequence(emptyList(), "Kulang ang bayad")
             if (showToast) Toast.makeText(this, "Kulang ang bayad para sa fare", Toast.LENGTH_SHORT).show()
             return
         }
 
-        val change = Math.round(payment - result.total).toInt()
-        tvChangeResult.text = "Sukli: ₱$change"
+        val changeCents = paymentCents - totalCents
+        tvChangeResult.text = "₱${formatPesoCents(changeCents)}"
 
-        // Greedy coin change — highest to lowest, matching the physical targets.
-        val coins = listOf(50, 20, 10, 5, 1)
-        val plan = mutableListOf<Int>()
-        var remaining = change
-        for (c in coins) {
-            while (remaining >= c) {
-                plan.add(c)
-                remaining -= c
-            }
+        val plan = denominationPlan(changeCents)
+        if (plan == null) {
+            tvAutoSequence.text = "Centavo o sobrang daming taps. Manu-manong ibigay ang eksaktong sukli."
+            FloatingService.instance?.updateSavedSequence(emptyList(), "Manu-manong sukli")
+            if (showToast) Toast.makeText(this, "Ibigay nang manu-mano ang eksaktong sukli; hindi ito mare-represent ng kasalukuyang targets.", Toast.LENGTH_LONG).show()
+            return
         }
+
         val sequence = plan.map { it.toString() } + "CHECK"
+        tvAutoSequence.text = if (plan.isEmpty()) {
+            "Exact payment · ✓ lang"
+        } else {
+            "${plan.joinToString(" + ")} → ✓"
+        }
 
-        tvAutoSequence.text = if (plan.isEmpty())
-            "Auto-click order: ✓ lang (exact payment)"
-        else
-            "Auto-click order: ${plan.joinToString(" + ")} → ✓"
-
-        val statusLabel = "₱$change → ${plan.joinToString(" + ").ifEmpty { "0" }} → ✓"
+        val statusLabel = "₱${formatPesoCents(changeCents)} → ${plan.joinToString(" + ").ifEmpty { "0" }} → ✓"
         FloatingService.instance?.updateSavedSequence(sequence, statusLabel)
 
         if (showToast) {
@@ -362,15 +506,26 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun showInvalidCalculation(message: String) {
+        tvFareResult.text = "—"
+        tvBreakdown.text = message
+        tvChangeResult.text = "—"
+        tvAutoSequence.text = "—"
+        FloatingService.instance?.updateSavedSequence(emptyList(), "Invalid na detalye")
+    }
+
     private fun resetTrip() {
         suppressRecalc = true
-        etRegularCount.setText("1")
-        etStudentCount.setText("")
-        etSeniorCount.setText("")
+        tvRegularCount.text = "1"
+        tvStudentCount.text = "0"
+        tvSeniorCount.text = "0"
         etPayment.setText("")
         spPickup.setSelection(0)
-        spDropoff.setSelection(currentBarangays.size - 1)
+        spDropoff.setSelection(currentBarangays.lastIndex)
         suppressRecalc = false
+        tvRegularCount.contentDescription = "Regular passengers: 1"
+        tvStudentCount.contentDescription = "Student passengers: 0"
+        tvSeniorCount.contentDescription = "Senior passengers: 0"
         recalcAndSave(showToast = false)
     }
 

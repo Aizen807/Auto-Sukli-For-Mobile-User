@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="forest">#10160D</color>
+    <color name="surface">#1A2418</color>
+    <color name="surface_muted">#222F1E</color>
+    <color name="input_surface">#131B12</color>
+    <color name="cream">#F1E9D2</color>
+    <color name="muted">#C9BE9E</color>
+    <color name="gold">#F3B22C</color>
+    <color name="ink">#1A2415</color>
+    <color name="divider">#34432D</color>
+    <color name="border">#3A4B32</color>
+</resources>
